@@ -966,6 +966,23 @@ export default function Home() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+
+    const registerServiceWorker = () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    };
+
+    if (document.readyState === "complete") {
+      registerServiceWorker();
+      return;
+    }
+
+    window.addEventListener("load", registerServiceWorker, { once: true });
+
+    return () => window.removeEventListener("load", registerServiceWorker);
+  }, []);
+
   const filteredCards = useMemo(() => filterCards(cards, filters), [cards, filters]);
   const groupedHistory = useMemo(() => groupCardsByMonth(filteredCards), [filteredCards]);
   const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);

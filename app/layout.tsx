@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -14,13 +14,31 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Cards Financeiros",
   title: "Cards Financeiros",
   description:
     "Gerador de cards financeiros com cálculos automáticos, histórico, estatísticas e exportação.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Cards Financeiros",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
+    apple: "/icons/apple-touch-icon.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0B1220",
 };
 
 export default function RootLayout({
