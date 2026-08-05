@@ -15,6 +15,13 @@
       "when": 1785961300000,
       "tag": "0001_access_users",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785961600000,
+      "tag": "0002_seed_friend_access",
+      "breakpoints": true
     }
   ]
 }
