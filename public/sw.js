@@ -1,6 +1,5 @@
-const CACHE_NAME = "cards-financeiros-pwa-v2";
+const CACHE_NAME = "cards-financeiros-pwa-v3";
 const APP_SHELL = [
-  "/",
   "/offline.html",
   "/manifest.webmanifest",
   "/favicon.svg",
@@ -44,13 +43,9 @@ self.addEventListener("fetch", (event) => {
 
 async function networkFirstNavigation(request) {
   try {
-    const response = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
-    cache.put("/", response.clone());
-    return response;
+    return await fetch(request);
   } catch {
-    const cachedHome = await caches.match("/");
-    return cachedHome || caches.match("/offline.html");
+    return caches.match("/offline.html");
   }
 }
 
