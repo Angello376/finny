@@ -131,6 +131,13 @@ type AccessUser = {
   lastLoginAt: string | null;
 };
 
+type AuthEmailQuota = {
+  limit: number;
+  used: number;
+  available: number;
+  nextAvailableAt: string | null;
+};
+
 const receiptTypes: ReceiptType[] = [
   "Salário",
   "Férias",
@@ -1014,6 +1021,7 @@ export default function CardsFinanceirosApp({
   const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
   const [adminStatus, setAdminStatus] = useState<"active" | "blocked">("active");
   const [adminMessage, setAdminMessage] = useState("");
+  const [authEmailQuota, setAuthEmailQuota] = useState<AuthEmailQuota | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -1124,8 +1132,9 @@ export default function CardsFinanceirosApp({
         headers: authHeaders(accessToken),
         cache: "no-store",
       });
-      const data = await readJsonResponse<{ users: AccessUser[] }>(response);
+      const data = await readJsonResponse<{ users: AccessUser[]; quota: AuthEmailQuota }>(response);
       setAccessUsers(data.users);
+      setAuthEmailQuota(data.quota);
     } catch (error) {
       setAdminMessage(
         error instanceof Error
@@ -1148,9 +1157,10 @@ export default function CardsFinanceirosApp({
           status: adminStatus,
         }),
       });
-      const data = await readJsonResponse<{ users: AccessUser[] }>(response);
+      const data = await readJsonResponse<{ users: AccessUser[]; quota: AuthEmailQuota }>(response);
 
       setAccessUsers(data.users);
+      setAuthEmailQuota(data.quota);
       setAdminEmail("");
       setAdminRole("user");
       setAdminStatus("active");
@@ -1503,6 +1513,7 @@ export default function CardsFinanceirosApp({
                   adminMessage={adminMessage}
                   adminRole={adminRole}
                   adminStatus={adminStatus}
+                  quota={authEmailQuota}
                   users={accessUsers}
                   onEmailChange={setAdminEmail}
                   onRefresh={loadAccessUsers}
@@ -1885,6 +1896,7 @@ function AdminAccessPanel({
   adminMessage,
   adminRole,
   adminStatus,
+  quota,
   users,
   onEmailChange,
   onRefresh,
@@ -1897,6 +1909,7 @@ function AdminAccessPanel({
   adminMessage: string;
   adminRole: "admin" | "user";
   adminStatus: "active" | "blocked";
+  quota: AuthEmailQuota | null;
   users: AccessUser[];
   onEmailChange: (value: string) => void;
   onRefresh: () => void;
@@ -1916,6 +1929,18 @@ function AdminAccessPanel({
           <RefreshCw size={16} aria-hidden="true" />
           Atualizar
         </button>
+      </div>
+
+      <div className="email-quota" aria-live="polite">
+        <strong>E-mails de cadastro</strong>
+        <span>{quota ? `${quota.available} de ${quota.limit} disponiveis nesta hora` : "Carregando limite..."}</span>
+        {quota?.nextAvailableAt ? (
+          <small>
+            Proxima liberacao estimada: {new Date(quota.nextAvailableAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          </small>
+        ) : (
+          <small>Voce ja pode liberar uma pessoa para criar a conta.</small>
+        )}
       </div>
 
       <div className="admin-form">

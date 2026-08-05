@@ -29,6 +29,13 @@
       "when": 1785962400000,
       "tag": "0003_reset_access_to_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785963000000,
+      "tag": "0004_auth_email_events",
+      "breakpoints": true
     }
   ]
 }

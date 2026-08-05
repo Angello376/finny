@@ -10,6 +10,12 @@ export const accessUsers = sqliteTable("access_users", {
   lastLoginAt: text("last_login_at"),
 });
 
+export const authEmailEvents = sqliteTable("auth_email_events", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export const financeCards = sqliteTable("finance_cards", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),

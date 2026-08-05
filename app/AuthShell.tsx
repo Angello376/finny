@@ -134,16 +134,43 @@ export default function AuthShell() {
           return;
         }
 
+        const quotaResponse = await fetch("/api/signup-quota", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: credentials.email }),
+        });
+        const quotaData = (await quotaResponse.json()) as {
+          reservationId?: string;
+          error?: string;
+          quota?: { nextAvailableAt: string | null };
+        };
+        if (!quotaResponse.ok || !quotaData.reservationId) {
+          setStatusMessage(
+            quotaData.quota?.nextAvailableAt
+              ? `Novos e-mails serao liberados por volta de ${new Date(quotaData.quota.nextAvailableAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+              : quotaData.error ?? "Nao foi possivel iniciar o cadastro.",
+          );
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           ...credentials,
           options: { emailRedirectTo: window.location.origin },
         });
 
         if (error) {
+          await fetch("/api/signup-quota", {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              reservationId: quotaData.reservationId,
+              outcome: isEmailRateLimitError(error) ? "rate_limited" : "failed",
+            }),
+          });
           if (isEmailRateLimitError(error)) {
             setEmailCooldown(60);
             setStatusMessage(
-              "O provedor de e-mail atingiu o limite temporario. Aguarde 1 minuto e tente novamente apenas uma vez.",
+              "O provedor de e-mail atingiu o limite desta hora. O contador do administrador foi atualizado; aguarde a proxima liberacao.",
             );
           } else {
             setStatusMessage(authErrorMessage(error.message));

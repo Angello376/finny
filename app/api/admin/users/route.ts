@@ -3,6 +3,7 @@ import {
   requireAdminUser,
   upsertAccessUser,
 } from "../../supabase-auth";
+import { getAuthEmailQuota } from "../../auth-email-quota";
 
 function apiError(error: unknown) {
   const message = error instanceof Error ? error.message : "Erro inesperado.";
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
 
   try {
     const users = await listAccessUsers();
-    return Response.json({ users });
+    return Response.json({ users, quota: await getAuthEmailQuota() });
   } catch (error) {
     return apiError(error);
   }
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     if (badRequest) return badRequest;
 
     const users = await listAccessUsers();
-    return Response.json({ users });
+    return Response.json({ users, quota: await getAuthEmailQuota() });
   } catch (error) {
     return apiError(error);
   }

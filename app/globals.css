@@ -646,6 +646,24 @@ button:disabled {
   font-weight: 800;
 }
 
+.email-quota {
+  display: grid;
+  gap: 0.25rem;
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.email-quota span {
+  color: var(--text);
+}
+
+.email-quota small {
+  color: var(--muted);
+}
+
 .access-list {
   display: grid;
   gap: 10px;
