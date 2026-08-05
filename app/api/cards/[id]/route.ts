@@ -7,10 +7,10 @@ function apiError(error: unknown) {
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { user, response } = await requireApiUser();
+  const { user, response } = await requireApiUser(request);
   if (!user) return response;
 
   try {

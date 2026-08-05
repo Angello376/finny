@@ -11,8 +11,8 @@ function apiError(error: unknown) {
   return Response.json({ error: message }, { status: 500 });
 }
 
-export async function GET() {
-  const { user, response } = await requireApiUser();
+export async function GET(request: Request) {
+  const { user, response } = await requireApiUser(request);
   if (!user) return response;
 
   try {
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const { user, response } = await requireApiUser();
+  const { user, response } = await requireApiUser(request);
   if (!user) return response;
 
   try {

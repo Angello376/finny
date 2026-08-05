@@ -8,6 +8,13 @@
       "when": 1785959630000,
       "tag": "0000_finance_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785961300000,
+      "tag": "0001_access_users",
+      "breakpoints": true
     }
   ]
 }

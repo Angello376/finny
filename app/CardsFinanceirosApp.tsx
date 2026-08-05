@@ -114,9 +114,21 @@ type Metrics = {
 };
 
 type AppUser = {
+  id: string;
   displayName: string;
   email: string;
-  signOutPath: string;
+  role: "admin" | "user";
+  status: "active" | "blocked";
+};
+
+type AccessUser = {
+  email: string;
+  userId: string | null;
+  role: "admin" | "user";
+  status: "active" | "blocked";
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt: string | null;
 };
 
 const receiptTypes: ReceiptType[] = [
@@ -370,30 +382,38 @@ const localStorageRepository = {
 };
 
 const financeRepository = {
-  async list(): Promise<FinanceCard[]> {
-    const response = await fetch("/api/cards", { cache: "no-store" });
+  async list(accessToken: string): Promise<FinanceCard[]> {
+    const response = await fetch("/api/cards", {
+      headers: authHeaders(accessToken),
+      cache: "no-store",
+    });
     const data = await readJsonResponse<{ cards: FinanceCard[] }>(response);
 
     return data.cards.sort(sortCardsByUpdatedAt);
   },
-  async save(card: FinanceCard) {
+  async save(card: FinanceCard, accessToken: string) {
     const response = await fetch("/api/cards", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
       body: JSON.stringify({ card }),
     });
     const data = await readJsonResponse<{ card: FinanceCard }>(response);
 
     return data.card;
   },
-  async remove(cardId: string) {
+  async remove(cardId: string, accessToken: string) {
     const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
       method: "DELETE",
+      headers: authHeaders(accessToken),
     });
 
     await readJsonResponse<{ ok: boolean }>(response);
   },
 };
+
+function authHeaders(accessToken: string) {
+  return { authorization: `Bearer ${accessToken}` };
+}
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as { error?: string };
@@ -968,7 +988,15 @@ function isRunningAsInstalledApp() {
   );
 }
 
-export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
+export default function CardsFinanceirosApp({
+  accessToken,
+  onSignOut,
+  user,
+}: {
+  accessToken: string;
+  onSignOut: () => void;
+  user: AppUser;
+}) {
   const [theme, setTheme] = useState<ThemeName>("dark");
   const [cards, setCards] = useState<FinanceCard[]>([]);
   const [draft, setDraft] = useState<FinanceCard | null>(null);
@@ -981,12 +1009,17 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
   const [isBusy, setIsBusy] = useState(false);
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
+  const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
+  const [adminStatus, setAdminStatus] = useState<"active" | "blocked">("active");
+  const [adminMessage, setAdminMessage] = useState("");
 
   useEffect(() => {
     let alive = true;
 
     financeRepository
-      .list()
+      .list(accessToken)
       .then((storedCards) => {
         if (alive) setCards(storedCards);
       })
@@ -1006,7 +1039,7 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
@@ -1054,6 +1087,11 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
+  useEffect(() => {
+    if (user.role !== "admin") return;
+    loadAccessUsers();
+  }, [accessToken, user.role]);
+
   const filteredCards = useMemo(() => filterCards(cards, filters), [cards, filters]);
   const groupedHistory = useMemo(() => groupCardsByMonth(filteredCards), [filteredCards]);
   const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);
@@ -1078,6 +1116,80 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
   function dismissIosInstallHint() {
     localStorage.setItem(IOS_INSTALL_HINT_KEY, "true");
     setShowIosInstallHint(false);
+  }
+
+  async function loadAccessUsers() {
+    try {
+      const response = await fetch("/api/admin/users", {
+        headers: authHeaders(accessToken),
+        cache: "no-store",
+      });
+      const data = await readJsonResponse<{ users: AccessUser[] }>(response);
+      setAccessUsers(data.users);
+    } catch (error) {
+      setAdminMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar usuarios.",
+      );
+    }
+  }
+
+  async function saveAccessUser() {
+    setAdminMessage("");
+
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+        body: JSON.stringify({
+          email: adminEmail,
+          role: adminRole,
+          status: adminStatus,
+        }),
+      });
+      const data = await readJsonResponse<{ users: AccessUser[] }>(response);
+
+      setAccessUsers(data.users);
+      setAdminEmail("");
+      setAdminRole("user");
+      setAdminStatus("active");
+      setAdminMessage("Acesso atualizado.");
+    } catch (error) {
+      setAdminMessage(
+        error instanceof Error ? error.message : "Nao foi possivel salvar usuario.",
+      );
+    }
+  }
+
+  async function toggleAccessUser(target: AccessUser) {
+    const nextStatus = target.status === "active" ? "blocked" : "active";
+    setAdminMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/users/${encodeURIComponent(target.email)}`,
+        {
+          method: "PATCH",
+          headers: {
+            ...authHeaders(accessToken),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
+      await readJsonResponse<{ ok: boolean }>(response);
+      await loadAccessUsers();
+      setAdminMessage(
+        nextStatus === "active" ? "Usuario desbloqueado." : "Usuario bloqueado.",
+      );
+    } catch (error) {
+      setAdminMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel alterar o acesso.",
+      );
+    }
   }
 
   function openExistingCard(card: FinanceCard) {
@@ -1148,7 +1260,7 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
     if (image) setSelectedImageId(image.id);
 
     try {
-      const savedCard = await financeRepository.save(nextCard);
+      const savedCard = await financeRepository.save(nextCard, accessToken);
       const syncedCards = [
         savedCard,
         ...cards.filter((card) => card.id !== savedCard.id),
@@ -1291,7 +1403,7 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
 
     const nextCards = cards.filter((card) => card.id !== draft.id);
     setCards(nextCards);
-    await financeRepository.remove(draft.id);
+      await financeRepository.remove(draft.id, accessToken);
     setDraft(null);
     setScreen("home");
     setNotice("Card removido do histórico.");
@@ -1341,9 +1453,14 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
             <strong>{user.displayName}</strong>
             <span>{user.email}</span>
           </div>
-          <a href={user.signOutPath} aria-label="Sair da conta" title="Sair da conta">
+          <button
+            type="button"
+            onClick={onSignOut}
+            aria-label="Sair da conta"
+            title="Sair da conta"
+          >
             <LogOut size={17} aria-hidden="true" />
-          </a>
+          </button>
         </div>
 
         <button
@@ -1379,6 +1496,23 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
 
         {screen === "home" ? (
           <HomeScreen
+            adminPanel={
+              user.role === "admin" ? (
+                <AdminAccessPanel
+                  adminEmail={adminEmail}
+                  adminMessage={adminMessage}
+                  adminRole={adminRole}
+                  adminStatus={adminStatus}
+                  users={accessUsers}
+                  onEmailChange={setAdminEmail}
+                  onRefresh={loadAccessUsers}
+                  onRoleChange={setAdminRole}
+                  onSave={saveAccessUser}
+                  onStatusChange={setAdminStatus}
+                  onToggleUser={toggleAccessUser}
+                />
+              ) : null
+            }
             cards={cards}
             filteredCards={filteredCards}
             filters={filters}
@@ -1699,6 +1833,7 @@ export default function CardsFinanceirosApp({ user }: { user: AppUser }) {
 }
 
 function HomeScreen({
+  adminPanel,
   cards,
   filteredCards,
   filters,
@@ -1708,6 +1843,7 @@ function HomeScreen({
   onNewCard,
   onOpenCard,
 }: {
+  adminPanel?: ReactNode;
   cards: FinanceCard[];
   filteredCards: FinanceCard[];
   filters: FilterState;
@@ -1736,9 +1872,115 @@ function HomeScreen({
       </div>
 
       <aside className="home-side">
+        {adminPanel}
         <FiltersPanel filters={filters} onFilterChange={onFilterChange} />
         <StatisticsPanel statistics={statistics} />
       </aside>
+    </section>
+  );
+}
+
+function AdminAccessPanel({
+  adminEmail,
+  adminMessage,
+  adminRole,
+  adminStatus,
+  users,
+  onEmailChange,
+  onRefresh,
+  onRoleChange,
+  onSave,
+  onStatusChange,
+  onToggleUser,
+}: {
+  adminEmail: string;
+  adminMessage: string;
+  adminRole: "admin" | "user";
+  adminStatus: "active" | "blocked";
+  users: AccessUser[];
+  onEmailChange: (value: string) => void;
+  onRefresh: () => void;
+  onRoleChange: (value: "admin" | "user") => void;
+  onSave: () => void;
+  onStatusChange: (value: "active" | "blocked") => void;
+  onToggleUser: (user: AccessUser) => void;
+}) {
+  return (
+    <section className="admin-panel" aria-labelledby="admin-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Admin</span>
+          <h2 id="admin-title">Controle de acesso</h2>
+        </div>
+        <button className="ghost-action" type="button" onClick={onRefresh}>
+          <RefreshCw size={16} aria-hidden="true" />
+          Atualizar
+        </button>
+      </div>
+
+      <div className="admin-form">
+        <label className="field">
+          <span>E-mail autorizado</span>
+          <input
+            inputMode="email"
+            value={adminEmail}
+            onChange={(event) => onEmailChange(event.target.value)}
+            placeholder="email@pessoa.com"
+          />
+        </label>
+
+        <label className="field">
+          <span>Permissao</span>
+          <select
+            value={adminRole}
+            onChange={(event) => onRoleChange(event.target.value as "admin" | "user")}
+          >
+            <option value="user">Usuario</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Status</span>
+          <select
+            value={adminStatus}
+            onChange={(event) =>
+              onStatusChange(event.target.value as "active" | "blocked")
+            }
+          >
+            <option value="active">Ativo</option>
+            <option value="blocked">Bloqueado</option>
+          </select>
+        </label>
+
+        <button className="secondary-action full" type="button" onClick={onSave}>
+          <Save size={17} aria-hidden="true" />
+          Salvar acesso
+        </button>
+      </div>
+
+      {adminMessage ? <p className="admin-message">{adminMessage}</p> : null}
+
+      <div className="access-list">
+        {users.map((accessUser) => (
+          <div className="access-row" key={accessUser.email}>
+            <div>
+              <strong>{accessUser.email}</strong>
+              <span>
+                {accessUser.role === "admin" ? "Administrador" : "Usuario"} ·{" "}
+                {accessUser.status === "active" ? "Ativo" : "Bloqueado"}
+              </span>
+            </div>
+            <button
+              className={accessUser.status === "active" ? "danger-mini" : "success-mini"}
+              type="button"
+              onClick={() => onToggleUser(accessUser)}
+            >
+              {accessUser.status === "active" ? "Bloquear" : "Liberar"}
+            </button>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

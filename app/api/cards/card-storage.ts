@@ -1,6 +1,9 @@
 import { env } from "cloudflare:workers";
 import { and, desc, eq } from "drizzle-orm";
-import { getChatGPTUser, type ChatGPTUser } from "@/app/chatgpt-auth";
+import {
+  requireSupabaseUser,
+  type AuthenticatedAppUser,
+} from "@/app/api/supabase-auth";
 import { getDb } from "@/db";
 import { financeCards } from "@/db/schema";
 
@@ -38,6 +41,7 @@ type GeneratedImage = {
   height: number;
   mimeType: "image/png" | "image/jpeg";
   dataUrl: string;
+  viewToken?: string;
 };
 
 export type FinanceCard = {
@@ -55,34 +59,22 @@ export type FinanceCard = {
 
 type FinanceCardRow = typeof financeCards.$inferSelect;
 
-export async function requireApiUser() {
-  const user = await getChatGPTUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: Response.json(
-        { error: "Faça login para acessar seus cards financeiros." },
-        { status: 401 },
-      ),
-    };
-  }
-
-  return { user, response: null };
+export async function requireApiUser(request: Request) {
+  return requireSupabaseUser(request);
 }
 
-export async function listUserCards(user: ChatGPTUser) {
+export async function listUserCards(user: AuthenticatedAppUser) {
   const db = getDb();
   const rows = await db
     .select()
     .from(financeCards)
-    .where(eq(financeCards.userId, user.userId))
+    .where(eq(financeCards.userId, user.id))
     .orderBy(desc(financeCards.updatedAt));
 
   return rows.map(rowToCard);
 }
 
-export async function saveUserCard(user: ChatGPTUser, input: FinanceCard) {
+export async function saveUserCard(user: AuthenticatedAppUser, input: FinanceCard) {
   const card = normalizeCard(input);
   const db = getDb();
   const existing = await db
@@ -91,7 +83,7 @@ export async function saveUserCard(user: ChatGPTUser, input: FinanceCard) {
     .where(eq(financeCards.id, card.id))
     .limit(1);
 
-  if (existing[0] && existing[0].userId !== user.userId) {
+  if (existing[0] && existing[0].userId !== user.id) {
     return {
       card: null,
       response: Response.json(
@@ -125,17 +117,17 @@ export async function saveUserCard(user: ChatGPTUser, input: FinanceCard) {
   return { card: savedCard, response: null };
 }
 
-export async function deleteUserCard(user: ChatGPTUser, cardId: string) {
+export async function deleteUserCard(user: AuthenticatedAppUser, cardId: string) {
   const db = getDb();
   await db
     .delete(financeCards)
-    .where(and(eq(financeCards.id, cardId), eq(financeCards.userId, user.userId)));
+    .where(and(eq(financeCards.id, cardId), eq(financeCards.userId, user.id)));
 
   await deleteStoredImages(user, cardId);
 }
 
 export async function getUserCardImage(
-  user: ChatGPTUser,
+  user: AuthenticatedAppUser,
   cardId: string,
   imageId: string,
 ) {
@@ -143,12 +135,39 @@ export async function getUserCardImage(
   const [row] = await db
     .select({ id: financeCards.id })
     .from(financeCards)
-    .where(and(eq(financeCards.id, cardId), eq(financeCards.userId, user.userId)))
+    .where(and(eq(financeCards.id, cardId), eq(financeCards.userId, user.id)))
     .limit(1);
 
   if (!row) return null;
 
   const object = await getImagesBucket().get(imageKey(user, cardId, imageId));
+  if (!object) return null;
+
+  return object;
+}
+
+export async function getCardImageByToken(
+  cardId: string,
+  imageId: string,
+  token: string,
+) {
+  const db = getDb();
+  const [row] = await db
+    .select({ userId: financeCards.userId, imagesJson: financeCards.imagesJson })
+    .from(financeCards)
+    .where(eq(financeCards.id, cardId))
+    .limit(1);
+
+  if (!row) return null;
+
+  const images = parseJson<GeneratedImage[]>(row.imagesJson, []);
+  const image = images.find(
+    (candidate) => candidate.id === imageId && candidate.viewToken === token,
+  );
+
+  if (!image) return null;
+
+  const object = await getImagesBucket().get(`${row.userId}/${cardId}/${imageId}`);
   if (!object) return null;
 
   return object;
@@ -190,10 +209,11 @@ function normalizeImage(image: GeneratedImage): GeneratedImage {
     height: Number.isFinite(image.height) ? image.height : 1080,
     mimeType: image.mimeType === "image/jpeg" ? "image/jpeg" : "image/png",
     dataUrl: image.dataUrl || "",
+    viewToken: image.viewToken,
   };
 }
 
-async function persistImages(user: ChatGPTUser, card: FinanceCard) {
+async function persistImages(user: AuthenticatedAppUser, card: FinanceCard) {
   const bucket = getImagesBucket();
 
   return Promise.all(
@@ -205,20 +225,23 @@ async function persistImages(user: ChatGPTUser, card: FinanceCard) {
         httpMetadata: { contentType },
       });
 
+      const viewToken = image.viewToken || crypto.randomUUID();
+
       return {
         ...image,
+        viewToken,
         mimeType: contentType === "image/jpeg" ? "image/jpeg" : "image/png",
         dataUrl: `/api/cards/${encodeURIComponent(card.id)}/images/${encodeURIComponent(
           image.id,
-        )}`,
+        )}?token=${encodeURIComponent(viewToken)}`,
       };
     }),
   );
 }
 
-async function deleteStoredImages(user: ChatGPTUser, cardId: string) {
+async function deleteStoredImages(user: AuthenticatedAppUser, cardId: string) {
   const bucket = getImagesBucket();
-  const listed = await bucket.list({ prefix: `${user.userId}/${cardId}/` });
+  const listed = await bucket.list({ prefix: `${user.id}/${cardId}/` });
 
   await Promise.all(listed.objects.map((object) => bucket.delete(object.key)));
 }
@@ -238,10 +261,10 @@ function rowToCard(row: FinanceCardRow): FinanceCard {
   };
 }
 
-function cardToRow(user: ChatGPTUser, card: FinanceCard) {
+function cardToRow(user: AuthenticatedAppUser, card: FinanceCard) {
   return {
     id: card.id,
-    userId: user.userId,
+    userId: user.id,
     createdAt: card.createdAt,
     updatedAt: card.updatedAt,
     type: card.type,
@@ -275,8 +298,8 @@ function dataUrlToBytes(dataUrl: string) {
   return { bytes, contentType };
 }
 
-function imageKey(user: ChatGPTUser, cardId: string, imageId: string) {
-  return `${user.userId}/${cardId}/${imageId}`;
+function imageKey(user: AuthenticatedAppUser, cardId: string, imageId: string) {
+  return `${user.id}/${cardId}/${imageId}`;
 }
 
 function getImagesBucket() {
