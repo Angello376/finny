@@ -3,9 +3,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import {
   BadgeDollarSign,
-  LockKeyhole,
   LogIn,
-  ShieldCheck,
   UserPlus,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -222,23 +220,8 @@ function LoginShell({
 
         <span className="eyebrow">Acesso protegido</span>
         <h1 id="login-title">Cards Financeiros</h1>
-        <p>
-          Entre com e-mail e senha. Cada usuario ve somente os proprios cards,
-          recebimentos, pagamentos e imagens geradas.
-        </p>
 
         {message ? <p className="login-message">{message}</p> : children}
-
-        <div className="login-assurances" aria-label="Garantias de privacidade">
-          <span>
-            <LockKeyhole size={17} aria-hidden="true" />
-            Senha escolhida pelo usuario
-          </span>
-          <span>
-            <ShieldCheck size={17} aria-hidden="true" />
-            Admin libera ou bloqueia acessos
-          </span>
-        </div>
       </section>
     </main>
   );
