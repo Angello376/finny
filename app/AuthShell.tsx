@@ -114,10 +114,30 @@ export default function AuthShell() {
 
     try {
       const credentials = { email: email.trim().toLowerCase(), password };
-      const result =
-        mode === "signin"
-          ? await supabase.auth.signInWithPassword(credentials)
-          : await supabase.auth.signUp(credentials);
+
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          ...credentials,
+          options: { emailRedirectTo: window.location.origin },
+        });
+
+        if (error) {
+          setStatusMessage(error.message);
+          return;
+        }
+
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setPassword("");
+        setMode("signin");
+        setStatusMessage(
+          "Cadastro criado. Enviamos um link de validacao para seu e-mail. Abra o link e depois entre.",
+        );
+        return;
+      }
+
+      const result = await supabase.auth.signInWithPassword(credentials);
 
       if (result.error) {
         setStatusMessage(result.error.message);
@@ -127,10 +147,6 @@ export default function AuthShell() {
       if (result.data.session) {
         setSession(result.data.session);
         await loadAppUser(result.data.session.access_token);
-      } else {
-        setStatusMessage(
-          "Conta criada. Se o Supabase pedir confirmacao, verifique seu e-mail antes de entrar.",
-        );
       }
     } finally {
       setIsSubmitting(false);
@@ -270,7 +286,11 @@ export default function AuthShell() {
           />
         </label>
 
-        {statusMessage ? <p className="login-message">{statusMessage}</p> : null}
+        {statusMessage ? (
+          <p className="login-message" role="status">
+            {statusMessage}
+          </p>
+        ) : null}
 
         <button className="login-button" disabled={isSubmitting} type="submit">
           {mode === "signin" ? (
