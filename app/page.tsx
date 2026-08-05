@@ -26,6 +26,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  Smartphone,
   Sun,
   Trash2,
   Wallet,
@@ -156,6 +157,7 @@ const DB_VERSION = 1;
 const STORE_NAME = "financeCards";
 const STORAGE_KEY = "cards-financeiros:data";
 const THEME_KEY = "cards-financeiros:theme";
+const IOS_INSTALL_HINT_KEY = "cards-financeiros:ios-install-hint-dismissed";
 
 const emptyFilters: FilterState = {
   month: "",
@@ -935,6 +937,26 @@ function concatBytes(parts: Uint8Array[]) {
   return output;
 }
 
+function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function isRunningAsInstalledApp() {
+  if (typeof window === "undefined") return false;
+
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    navigatorWithStandalone.standalone === true
+  );
+}
+
 export default function Home() {
   const [theme, setTheme] = useState<ThemeName>("dark");
   const [cards, setCards] = useState<FinanceCard[]>([]);
@@ -946,6 +968,8 @@ export default function Home() {
   const [messages, setMessages] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [isStandaloneApp, setIsStandaloneApp] = useState(false);
+  const [showIosInstallHint, setShowIosInstallHint] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -983,6 +1007,31 @@ export default function Home() {
     return () => window.removeEventListener("load", registerServiceWorker);
   }, []);
 
+  useEffect(() => {
+    const standalone = isRunningAsInstalledApp();
+    const ios = isIosDevice();
+    const dismissed = localStorage.getItem(IOS_INSTALL_HINT_KEY) === "true";
+
+    setIsStandaloneApp(standalone);
+    setShowIosInstallHint(ios && !standalone && !dismissed);
+    document.documentElement.dataset.platform = ios ? "ios" : "other";
+    document.documentElement.dataset.displayMode = standalone ? "standalone" : "browser";
+
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const handleDisplayModeChange = () => setIsStandaloneApp(isRunningAsInstalledApp());
+    standaloneQuery.addEventListener?.("change", handleDisplayModeChange);
+
+    return () => standaloneQuery.removeEventListener?.("change", handleDisplayModeChange);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") !== "new-card") return;
+
+    openNewCard();
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const filteredCards = useMemo(() => filterCards(cards, filters), [cards, filters]);
   const groupedHistory = useMemo(() => groupCardsByMonth(filteredCards), [filteredCards]);
   const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);
@@ -1002,6 +1051,11 @@ export default function Home() {
     setMessages([]);
     setNotice("");
     setScreen("editor");
+  }
+
+  function dismissIosInstallHint() {
+    localStorage.setItem(IOS_INSTALL_HINT_KEY, "true");
+    setShowIosInstallHint(false);
   }
 
   function openExistingCard(card: FinanceCard) {
@@ -1215,7 +1269,12 @@ export default function Home() {
   }
 
   return (
-    <main className="finance-app" data-theme={theme}>
+    <main
+      className={`finance-app${isStandaloneApp ? " is-standalone" : ""}${
+        showIosInstallHint ? " has-ios-install-hint" : ""
+      }`}
+      data-theme={theme}
+    >
       <aside className="app-menu">
         <div className="brand-block">
           <span className="brand-mark">
@@ -1567,6 +1626,21 @@ export default function Home() {
           </section>
         ) : null}
       </section>
+
+      {showIosInstallHint ? (
+        <aside className="ios-install-card" role="status" aria-label="Instalar no iPhone">
+          <span className="ios-install-icon">
+            <Smartphone size={20} aria-hidden="true" />
+          </span>
+          <div>
+            <strong>Instalar no iPhone</strong>
+            <p>Toque em Compartilhar e depois em Adicionar à Tela de Início.</p>
+          </div>
+          <button type="button" onClick={dismissIosInstallHint} aria-label="Ocultar dica de instalação">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </aside>
+      ) : null}
     </main>
   );
 }
