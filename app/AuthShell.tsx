@@ -3,6 +3,7 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import {
   BadgeDollarSign,
+  KeyRound,
   LogIn,
   UserPlus,
 } from "lucide-react";
@@ -22,7 +23,7 @@ type AppUser = {
   status: "active" | "blocked";
 };
 
-type AuthMode = "signin" | "signup";
+type AuthMode = "signin" | "signup" | "update-password";
 
 export default function AuthShell() {
   const supabase = useMemo(
@@ -32,6 +33,7 @@ export default function AuthShell() {
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -44,6 +46,11 @@ export default function AuthShell() {
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
       setSession(data.session);
+      if (window.location.hash.includes("type=recovery")) {
+        setMode("update-password");
+        setIsLoading(false);
+        return;
+      }
       if (data.session) {
         loadAppUser(data.session.access_token);
       } else {
@@ -52,9 +59,14 @@ export default function AuthShell() {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         setSession(nextSession);
         setUser(null);
+        if (event === "PASSWORD_RECOVERY") {
+          setMode("update-password");
+          setIsLoading(false);
+          return;
+        }
         if (nextSession) {
           loadAppUser(nextSession.access_token);
         } else {
@@ -125,11 +137,65 @@ export default function AuthShell() {
     }
   }
 
+  async function handlePasswordReset() {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setStatusMessage("Informe seu e-mail para receber o link de recuperacao.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage("");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: window.location.origin,
+      });
+
+      if (error) {
+        setStatusMessage(error.message);
+        return;
+      }
+
+      setStatusMessage("Enviamos um link para redefinir sua senha.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleNewPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setStatusMessage("");
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        setStatusMessage(error.message);
+        return;
+      }
+
+      await supabase.auth.signOut();
+      window.history.replaceState(null, "", window.location.pathname);
+      setSession(null);
+      setUser(null);
+      setPassword("");
+      setNewPassword("");
+      setMode("signin");
+      setStatusMessage("Senha atualizada. Entre novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
     setPassword("");
+    setNewPassword("");
     setStatusMessage("");
   }
 
@@ -144,6 +210,34 @@ export default function AuthShell() {
         onSignOut={handleSignOut}
         user={user}
       />
+    );
+  }
+
+  if (mode === "update-password") {
+    return (
+      <LoginShell>
+        <form className="login-form" onSubmit={handleNewPasswordSubmit}>
+          <label>
+            <span>Nova senha</span>
+            <input
+              autoComplete="new-password"
+              minLength={6}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="Digite a nova senha"
+              required
+              type="password"
+              value={newPassword}
+            />
+          </label>
+
+          {statusMessage ? <p className="login-message">{statusMessage}</p> : null}
+
+          <button className="login-button" disabled={isSubmitting} type="submit">
+            <KeyRound size={19} aria-hidden="true" />
+            Salvar nova senha
+          </button>
+        </form>
+      </LoginShell>
     );
   }
 
@@ -187,6 +281,17 @@ export default function AuthShell() {
           {mode === "signin" ? "Entrar" : "Criar minha senha"}
         </button>
       </form>
+
+      {mode === "signin" ? (
+        <button
+          className="login-muted-action"
+          disabled={isSubmitting}
+          type="button"
+          onClick={handlePasswordReset}
+        >
+          Esqueci minha senha
+        </button>
+      ) : null}
 
       <button
         className="login-switch"
