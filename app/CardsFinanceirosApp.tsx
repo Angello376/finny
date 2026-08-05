@@ -1202,6 +1202,28 @@ export default function CardsFinanceirosApp({
     }
   }
 
+  async function deleteAccessUser(target: AccessUser) {
+    const confirmed = window.confirm(
+      `Remover ${target.email} da lista de usuarios autorizados?`,
+    );
+    if (!confirmed) return;
+
+    setAdminMessage("");
+    try {
+      const response = await fetch(
+        `/api/admin/users/${encodeURIComponent(target.email)}`,
+        { method: "DELETE", headers: authHeaders(accessToken) },
+      );
+      await readJsonResponse<{ ok: boolean }>(response);
+      await loadAccessUsers();
+      setAdminMessage("Usuario removido da lista de acesso.");
+    } catch (error) {
+      setAdminMessage(
+        error instanceof Error ? error.message : "Nao foi possivel remover o usuario.",
+      );
+    }
+  }
+
   function openExistingCard(card: FinanceCard) {
     const nextDraft = cloneCard(card);
     setDraft(nextDraft);
@@ -1516,6 +1538,7 @@ export default function CardsFinanceirosApp({
                   quota={authEmailQuota}
                   users={accessUsers}
                   onEmailChange={setAdminEmail}
+                  onDeleteUser={deleteAccessUser}
                   onRefresh={loadAccessUsers}
                   onRoleChange={setAdminRole}
                   onSave={saveAccessUser}
@@ -1899,6 +1922,7 @@ function AdminAccessPanel({
   quota,
   users,
   onEmailChange,
+  onDeleteUser,
   onRefresh,
   onRoleChange,
   onSave,
@@ -1912,12 +1936,33 @@ function AdminAccessPanel({
   quota: AuthEmailQuota | null;
   users: AccessUser[];
   onEmailChange: (value: string) => void;
+  onDeleteUser: (user: AccessUser) => void;
   onRefresh: () => void;
   onRoleChange: (value: "admin" | "user") => void;
   onSave: () => void;
   onStatusChange: (value: "active" | "blocked") => void;
   onToggleUser: (user: AccessUser) => void;
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+  const nextAvailableAt = quota?.nextAvailableAt ?? null;
+  const remainingSeconds = nextAvailableAt
+    ? Math.max(0, Math.ceil((new Date(nextAvailableAt).getTime() - now) / 1000))
+    : 0;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!nextAvailableAt || remainingSeconds > 0 || refreshedAt === nextAvailableAt) {
+      return;
+    }
+    setRefreshedAt(nextAvailableAt);
+    onRefresh();
+  }, [nextAvailableAt, onRefresh, refreshedAt, remainingSeconds]);
+
   return (
     <section className="admin-panel" aria-labelledby="admin-title">
       <div className="section-heading">
@@ -1936,7 +1981,7 @@ function AdminAccessPanel({
         <span>{quota ? `${quota.available} de ${quota.limit} disponiveis nesta hora` : "Carregando limite..."}</span>
         {quota?.nextAvailableAt ? (
           <small>
-            Proxima liberacao estimada: {new Date(quota.nextAvailableAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            Proxima liberacao em {formatCountdown(remainingSeconds)} ({new Date(quota.nextAvailableAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})
           </small>
         ) : (
           <small>Voce ja pode liberar uma pessoa para criar a conta.</small>
@@ -1996,18 +2041,33 @@ function AdminAccessPanel({
                 {accessUser.status === "active" ? "Ativo" : "Bloqueado"}
               </span>
             </div>
-            <button
-              className={accessUser.status === "active" ? "danger-mini" : "success-mini"}
-              type="button"
-              onClick={() => onToggleUser(accessUser)}
-            >
-              {accessUser.status === "active" ? "Bloquear" : "Liberar"}
-            </button>
+            <div className="access-actions">
+              <button
+                className={accessUser.status === "active" ? "danger-mini" : "success-mini"}
+                type="button"
+                onClick={() => onToggleUser(accessUser)}
+              >
+                {accessUser.status === "active" ? "Bloquear" : "Liberar"}
+              </button>
+              <button
+                className="danger-mini"
+                type="button"
+                onClick={() => onDeleteUser(accessUser)}
+              >
+                Excluir
+              </button>
+            </div>
           </div>
         ))}
       </div>
     </section>
   );
+}
+
+function formatCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function SummaryPanel({

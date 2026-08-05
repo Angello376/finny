@@ -175,6 +175,23 @@ export async function updateAccessUserStatus(
     .where(and(eq(accessUsers.email, normalizedEmail)));
 }
 
+export async function deleteAccessUser(email: string, currentAdminEmail: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (normalizedEmail === currentAdminEmail.trim().toLowerCase()) {
+    return Response.json(
+      { error: "Voce nao pode excluir o seu proprio acesso de administrador." },
+      { status: 400 },
+    );
+  }
+
+  await getDb()
+    .delete(accessUsers)
+    .where(eq(accessUsers.email, normalizedEmail));
+
+  return null;
+}
+
 function getBearerToken(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   const [scheme, token] = authorization.split(" ");

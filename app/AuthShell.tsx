@@ -217,11 +217,38 @@ export default function AuthShell() {
     setStatusMessage("");
 
     try {
+      const quotaResponse = await fetch("/api/signup-quota", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      const quotaData = (await quotaResponse.json()) as {
+        reservationId?: string;
+        error?: string;
+        quota?: { nextAvailableAt: string | null };
+      };
+      if (!quotaResponse.ok || !quotaData.reservationId) {
+        setStatusMessage(
+          quotaData.quota?.nextAvailableAt
+            ? `A recuperacao estara disponivel por volta de ${new Date(quotaData.quota.nextAvailableAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+            : quotaData.error ?? "Nao foi possivel solicitar a recuperacao.",
+        );
+        return;
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: window.location.origin,
       });
 
       if (error) {
+        await fetch("/api/signup-quota", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            reservationId: quotaData.reservationId,
+            outcome: isEmailRateLimitError(error) ? "rate_limited" : "failed",
+          }),
+        });
         if (isEmailRateLimitError(error)) {
           setEmailCooldown(60);
           setStatusMessage(

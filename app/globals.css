@@ -694,6 +694,13 @@ button:disabled {
   white-space: nowrap;
 }
 
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .access-row strong {
   color: var(--text);
   font-size: 13px;
