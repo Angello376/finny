@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { accessUsers } from "@/db/schema";
+import { accessUsers, financeCards } from "@/db/schema";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/app/supabase-config";
 
 export type AppRole = "admin" | "user";
@@ -73,6 +73,7 @@ export async function requireSupabaseUser(request: Request) {
     .update(accessUsers)
     .set({ userId: authUser.id, lastLoginAt: now, updatedAt: now })
     .where(eq(accessUsers.email, email));
+  await migrateLegacyCards(request, email, authUser.id);
 
   if (access.status !== "active") {
     return {
@@ -180,4 +181,24 @@ function getBearerToken(request: Request) {
 
   if (scheme.toLowerCase() !== "bearer" || !token) return null;
   return token;
+}
+
+async function migrateLegacyCards(
+  request: Request,
+  email: string,
+  supabaseUserId: string,
+) {
+  const legacyUserId = request.headers.get("oai-authenticated-user-id");
+  const legacyEmail = request.headers
+    .get("oai-authenticated-user-email")
+    ?.toLowerCase();
+
+  if (!legacyUserId || legacyUserId === supabaseUserId || legacyEmail !== email) {
+    return;
+  }
+
+  await getDb()
+    .update(financeCards)
+    .set({ userId: supabaseUserId })
+    .where(eq(financeCards.userId, legacyUserId));
 }
