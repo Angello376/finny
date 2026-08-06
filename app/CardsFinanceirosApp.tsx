@@ -26,6 +26,7 @@ import {
   Save,
   Search,
   Share2,
+  ShieldCheck,
   SlidersHorizontal,
   Smartphone,
   Sun,
@@ -1092,7 +1093,7 @@ export default function CardsFinanceirosApp({
   const [theme, setTheme] = useState<ThemeName>("dark");
   const [cards, setCards] = useState<FinanceCard[]>([]);
   const [draft, setDraft] = useState<FinanceCard | null>(null);
-  const [screen, setScreen] = useState<"home" | "editor">("home");
+  const [screen, setScreen] = useState<"home" | "editor" | "admin">("home");
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [selectedFormat, setSelectedFormat] = useState<CardFormatId>("square");
   const [selectedImageId, setSelectedImageId] = useState<string>("");
@@ -1221,6 +1222,12 @@ export default function CardsFinanceirosApp({
     loadAccessUsers();
   }, [accessToken, user.role]);
 
+  useEffect(() => {
+    if (screen === "admin" && user.role !== "admin") {
+      setScreen("home");
+    }
+  }, [screen, user.role]);
+
   const filteredCards = useMemo(() => filterCards(cards, filters), [cards, filters]);
   const groupedHistory = useMemo(() => groupCardsByMonth(filteredCards), [filteredCards]);
   const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);
@@ -1242,6 +1249,20 @@ export default function CardsFinanceirosApp({
     setMessages([]);
     setNotice("");
     setScreen("editor");
+  }
+
+  function openCardsHome() {
+    setMessages([]);
+    setNotice("");
+    setScreen("home");
+  }
+
+  function openAdminArea() {
+    if (user.role !== "admin") return;
+    setMessages([]);
+    setNotice("");
+    setScreen("admin");
+    void loadAccessUsers();
   }
 
   function dismissIosInstallHint() {
@@ -1589,6 +1610,8 @@ export default function CardsFinanceirosApp({
     return `card-financeiro-${cleanLabel || "recebimento"}.${extension}`;
   }
 
+  const isAdminArea = screen === "admin" && user.role === "admin";
+
   return (
     <main
       className={`finance-app${isStandaloneApp ? " is-standalone" : ""}${
@@ -1608,10 +1631,24 @@ export default function CardsFinanceirosApp({
         </div>
 
         <nav aria-label="Menu principal">
-          <button className="menu-item is-active" type="button">
+          <button
+            className={`menu-item${isAdminArea ? "" : " is-active"}`}
+            type="button"
+            onClick={openCardsHome}
+          >
             <LayoutDashboard size={18} aria-hidden="true" />
             Cards Financeiros
           </button>
+          {user.role === "admin" ? (
+            <button
+              className={`menu-item${isAdminArea ? " is-active" : ""}`}
+              type="button"
+              onClick={openAdminArea}
+            >
+              <ShieldCheck size={18} aria-hidden="true" />
+              Admin
+            </button>
+          ) : null}
         </nav>
 
         <div className="account-card">
@@ -1647,13 +1684,15 @@ export default function CardsFinanceirosApp({
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <span className="eyebrow">Módulo</span>
-            <h1>Cards Financeiros</h1>
+            <span className="eyebrow">{isAdminArea ? "Admin" : "Módulo"}</span>
+            <h1>{isAdminArea ? "Controle de acesso" : "Cards Financeiros"}</h1>
           </div>
-          <button className="primary-action" type="button" onClick={openNewCard}>
-            <Plus size={20} aria-hidden="true" />
-            Novo Card
-          </button>
+          {isAdminArea ? null : (
+            <button className="primary-action" type="button" onClick={openNewCard}>
+              <Plus size={20} aria-hidden="true" />
+              Novo Card
+            </button>
+          )}
         </header>
 
         {notice ? (
@@ -1665,25 +1704,6 @@ export default function CardsFinanceirosApp({
 
         {screen === "home" ? (
           <HomeScreen
-            adminPanel={
-              user.role === "admin" ? (
-                <AdminAccessPanel
-                  adminEmail={adminEmail}
-                  adminMessage={adminMessage}
-                  adminRole={adminRole}
-                  adminStatus={adminStatus}
-                  quota={authEmailQuota}
-                  users={accessUsers}
-                  onEmailChange={setAdminEmail}
-                  onDeleteUser={deleteAccessUser}
-                  onRefresh={loadAccessUsers}
-                  onRoleChange={setAdminRole}
-                  onSave={saveAccessUser}
-                  onStatusChange={setAdminStatus}
-                  onToggleUser={toggleAccessUser}
-                />
-              ) : null
-            }
             cards={cards}
             filteredCards={filteredCards}
             filters={filters}
@@ -1693,6 +1713,24 @@ export default function CardsFinanceirosApp({
             onNewCard={openNewCard}
             onOpenCard={openExistingCard}
           />
+        ) : isAdminArea ? (
+          <section className="admin-page">
+            <AdminAccessPanel
+              adminEmail={adminEmail}
+              adminMessage={adminMessage}
+              adminRole={adminRole}
+              adminStatus={adminStatus}
+              quota={authEmailQuota}
+              users={accessUsers}
+              onEmailChange={setAdminEmail}
+              onDeleteUser={deleteAccessUser}
+              onRefresh={loadAccessUsers}
+              onRoleChange={setAdminRole}
+              onSave={saveAccessUser}
+              onStatusChange={setAdminStatus}
+              onToggleUser={toggleAccessUser}
+            />
+          </section>
         ) : draft ? (
           <section className="editor-shell">
             <div className="editor-main">
@@ -2014,7 +2052,6 @@ export default function CardsFinanceirosApp({
 }
 
 function HomeScreen({
-  adminPanel,
   cards,
   filteredCards,
   filters,
@@ -2024,7 +2061,6 @@ function HomeScreen({
   onNewCard,
   onOpenCard,
 }: {
-  adminPanel?: ReactNode;
   cards: FinanceCard[];
   filteredCards: FinanceCard[];
   filters: FilterState;
@@ -2053,7 +2089,6 @@ function HomeScreen({
       </div>
 
       <aside className="home-side">
-        {adminPanel}
         <FiltersPanel filters={filters} onFilterChange={onFilterChange} />
         <StatisticsPanel statistics={statistics} />
       </aside>

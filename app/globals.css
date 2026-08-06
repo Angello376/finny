@@ -622,7 +622,8 @@ button:disabled {
 }
 
 .home-grid,
-.editor-shell {
+.editor-shell,
+.admin-page {
   display: grid;
   gap: 22px;
   max-width: 1540px;
@@ -632,6 +633,10 @@ button:disabled {
 .home-grid {
   grid-template-columns: minmax(0, 1fr) 420px;
   align-items: start;
+}
+
+.admin-page {
+  width: min(100%, 860px);
 }
 
 .home-primary,
