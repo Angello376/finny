@@ -3,6 +3,8 @@
 import { createClient, type Session } from "@supabase/supabase-js";
 import {
   BadgeDollarSign,
+  Eye,
+  EyeOff,
   KeyRound,
   LogIn,
   UserPlus,
@@ -34,6 +36,8 @@ export default function AuthShell() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -182,6 +186,7 @@ export default function AuthShell() {
         setSession(null);
         setUser(null);
         setPassword("");
+        setShowPassword(false);
         setMode("signin");
         setStatusMessage(
           "Cadastro criado. Enviamos um link de validacao para seu e-mail. Abra o link e depois entre.",
@@ -285,6 +290,8 @@ export default function AuthShell() {
       setUser(null);
       setPassword("");
       setNewPassword("");
+      setShowPassword(false);
+      setShowNewPassword(false);
       setMode("signin");
       setStatusMessage("Senha atualizada. Entre novamente.");
     } finally {
@@ -298,6 +305,8 @@ export default function AuthShell() {
     setUser(null);
     setPassword("");
     setNewPassword("");
+    setShowPassword(false);
+    setShowNewPassword(false);
     setStatusMessage("");
   }
 
@@ -321,15 +330,29 @@ export default function AuthShell() {
         <form className="login-form" onSubmit={handleNewPasswordSubmit}>
           <label>
             <span>Nova senha</span>
-            <input
-              autoComplete="new-password"
-              minLength={6}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Digite a nova senha"
-              required
-              type="password"
-              value={newPassword}
-            />
+            <div className="password-field">
+              <input
+                autoComplete="new-password"
+                minLength={6}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Digite a nova senha"
+                required
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((visible) => !visible)}
+                aria-label={showNewPassword ? "Ocultar senha" : "Mostrar senha"}
+                title={showNewPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showNewPassword ? (
+                  <EyeOff size={18} aria-hidden="true" />
+                ) : (
+                  <Eye size={18} aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </label>
 
           {statusMessage ? <p className="login-message">{statusMessage}</p> : null}
@@ -361,15 +384,29 @@ export default function AuthShell() {
 
         <label>
           <span>Senha</span>
-          <input
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            minLength={6}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Digite sua senha"
-            required
-            type="password"
-            value={password}
-          />
+          <div className="password-field">
+            <input
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              minLength={6}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Digite sua senha"
+              required
+              type={showPassword ? "text" : "password"}
+              value={password}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            >
+              {showPassword ? (
+                <EyeOff size={18} aria-hidden="true" />
+              ) : (
+                <Eye size={18} aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </label>
 
         {statusMessage ? (
