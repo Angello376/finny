@@ -27,6 +27,12 @@ type AppUser = {
 
 type AuthMode = "signin" | "signup" | "update-password";
 
+type AuthUrlState = {
+  code: string | null;
+  error: string | null;
+  isRecovery: boolean;
+};
+
 export default function AuthShell() {
   const supabase = useMemo(
     () => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY),
@@ -58,10 +64,45 @@ export default function AuthShell() {
   useEffect(() => {
     let alive = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function initializeAuth() {
+      const authUrlState = getAuthUrlState();
+
       if (!alive) return;
+
+      if (authUrlState.error) {
+        setStatusMessage(authUrlState.error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (authUrlState.isRecovery && authUrlState.code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(
+          authUrlState.code,
+        );
+
+        if (!alive) return;
+
+        if (error || !data.session) {
+          setMode("signin");
+          setStatusMessage(
+            "Link de recuperacao invalido ou expirado. Solicite um novo link.",
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        setSession(data.session);
+        setMode("update-password");
+        setIsLoading(false);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+
+      if (!alive) return;
+
       setSession(data.session);
-      if (window.location.hash.includes("type=recovery")) {
+      if (authUrlState.isRecovery) {
         setMode("update-password");
         setIsLoading(false);
         return;
@@ -71,7 +112,9 @@ export default function AuthShell() {
       } else {
         setIsLoading(false);
       }
-    });
+    }
+
+    initializeAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, nextSession) => {
@@ -242,7 +285,7 @@ export default function AuthShell() {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: window.location.origin,
+        redirectTo: getPasswordRecoveryRedirectUrl(),
       });
 
       if (error) {
@@ -328,6 +371,10 @@ export default function AuthShell() {
     return (
       <LoginShell>
         <form className="login-form" onSubmit={handleNewPasswordSubmit}>
+          <p className="login-helper">
+            Link validado. Crie uma nova senha para acessar sua conta.
+          </p>
+
           <label>
             <span>Nova senha</span>
             <div className="password-field">
@@ -482,6 +529,28 @@ function authErrorMessage(message: string) {
   }
 
   return message;
+}
+
+function getAuthUrlState(): AuthUrlState {
+  const url = new URL(window.location.href);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const type = url.searchParams.get("type") ?? hashParams.get("type");
+  const errorDescription =
+    url.searchParams.get("error_description") ??
+    hashParams.get("error_description");
+
+  return {
+    code: url.searchParams.get("code"),
+    error: errorDescription ? decodeURIComponent(errorDescription) : null,
+    isRecovery:
+      url.searchParams.get("auth") === "recovery" ||
+      type === "recovery" ||
+      window.location.pathname === "/reset-password",
+  };
+}
+
+function getPasswordRecoveryRedirectUrl() {
+  return `${window.location.origin}/?auth=recovery`;
 }
 
 function LoginShell({
