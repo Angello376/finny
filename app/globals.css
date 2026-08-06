@@ -510,6 +510,35 @@ button:disabled {
   width: 100%;
 }
 
+.editor-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.draft-indicator {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--subtle);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.draft-indicator.is-saved,
+.draft-indicator.is-restored {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--muted);
+}
+
 .notice,
 .message-stack,
 .negative-warning {

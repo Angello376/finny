@@ -113,6 +113,8 @@ type Metrics = {
   committedPercent: number;
 };
 
+type DraftBackupStatus = "idle" | "pending" | "saved" | "restored";
+
 type AppUser = {
   id: string;
   displayName: string;
@@ -136,6 +138,11 @@ type AuthEmailQuota = {
   used: number;
   available: number;
   nextAvailableAt: string | null;
+};
+
+type DraftSnapshot = {
+  card: FinanceCard;
+  savedAt: string;
 };
 
 const receiptTypes: ReceiptType[] = [
@@ -185,6 +192,8 @@ const STORE_NAME = "financeCards";
 const STORAGE_KEY = "cards-financeiros:data";
 const THEME_KEY = "cards-financeiros:theme";
 const IOS_INSTALL_HINT_KEY = "cards-financeiros:ios-install-hint-dismissed";
+const DRAFTS_KEY_PREFIX = "cards-financeiros:drafts:";
+const DRAFT_SAVE_DELAY_MS = 450;
 
 const emptyFilters: FilterState = {
   month: "",
@@ -324,6 +333,82 @@ function cloneCard(card: FinanceCard): FinanceCard {
     payments: card.payments.map((payment) => ({ ...payment })),
     images: card.images.map((image) => ({ ...image })),
   };
+}
+
+function cardHasDraftContent(card: FinanceCard) {
+  return (
+    Boolean(card.type || card.date || card.amountCents || card.description.trim()) ||
+    card.payments.some(isMeaningfulPayment) ||
+    card.images.length > 0
+  );
+}
+
+function draftStorageKey(userId: string) {
+  return `${DRAFTS_KEY_PREFIX}${userId}`;
+}
+
+function readDraftSnapshots(userId: string): Record<string, DraftSnapshot> {
+  if (typeof localStorage === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(draftStorageKey(userId));
+    return raw ? (JSON.parse(raw) as Record<string, DraftSnapshot>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalDraft(userId: string, card: FinanceCard, savedAt: string) {
+  if (typeof localStorage === "undefined") return;
+
+  const snapshots = readDraftSnapshots(userId);
+  snapshots[card.id] = { card: cloneCard(card), savedAt };
+  localStorage.setItem(draftStorageKey(userId), JSON.stringify(snapshots));
+}
+
+function removeLocalDraft(userId: string, cardId: string) {
+  if (typeof localStorage === "undefined") return;
+
+  const snapshots = readDraftSnapshots(userId);
+  delete snapshots[cardId];
+
+  if (Object.keys(snapshots).length) {
+    localStorage.setItem(draftStorageKey(userId), JSON.stringify(snapshots));
+    return;
+  }
+
+  localStorage.removeItem(draftStorageKey(userId));
+}
+
+function findRecoverableDraft(userId: string, cards: FinanceCard[]) {
+  const cardsById = new Map(cards.map((card) => [card.id, card]));
+
+  return Object.values(readDraftSnapshots(userId))
+    .filter((snapshot) => cardHasDraftContent(snapshot.card))
+    .filter((snapshot) => {
+      const savedCard = cardsById.get(snapshot.card.id);
+      if (!savedCard) return true;
+      return new Date(snapshot.savedAt).getTime() > new Date(savedCard.updatedAt).getTime();
+    })
+    .sort(
+      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
+    )[0];
+}
+
+function resolveCardDraft(userId: string, card: FinanceCard) {
+  const snapshot = readDraftSnapshots(userId)[card.id];
+  if (!snapshot || !cardHasDraftContent(snapshot.card)) return null;
+
+  const draftTime = new Date(snapshot.savedAt).getTime();
+  const cardTime = new Date(card.updatedAt).getTime();
+  return draftTime > cardTime ? snapshot : null;
+}
+
+function draftBackupLabel(status: DraftBackupStatus) {
+  if (status === "pending") return "Protegendo rascunho...";
+  if (status === "saved") return "Rascunho salvo neste aparelho";
+  if (status === "restored") return "Rascunho recuperado";
+  return "";
 }
 
 function openFinanceDatabase(): Promise<IDBDatabase> {
@@ -1014,6 +1099,9 @@ export default function CardsFinanceirosApp({
   const [messages, setMessages] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
+  const [draftBackupStatus, setDraftBackupStatus] =
+    useState<DraftBackupStatus>("idle");
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
@@ -1029,7 +1117,20 @@ export default function CardsFinanceirosApp({
     financeRepository
       .list(accessToken)
       .then((storedCards) => {
-        if (alive) setCards(storedCards);
+        if (!alive) return;
+
+        setCards(storedCards);
+
+        const recoveredDraft = findRecoverableDraft(user.id, storedCards);
+        if (recoveredDraft) {
+          const nextDraft = cloneCard(recoveredDraft.card);
+          setDraft(nextDraft);
+          setSelectedImageId(nextDraft.images[nextDraft.images.length - 1]?.id ?? "");
+          setIsDraftDirty(true);
+          setDraftBackupStatus("restored");
+          setNotice("Rascunho recuperado neste aparelho.");
+          setScreen("editor");
+        }
       })
       .catch((error) => {
         if (alive) {
@@ -1047,11 +1148,31 @@ export default function CardsFinanceirosApp({
     return () => {
       alive = false;
     };
-  }, [accessToken]);
+  }, [accessToken, user.id]);
 
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (screen !== "editor" || !draft || !isDraftDirty) return;
+
+    if (!cardHasDraftContent(draft)) {
+      removeLocalDraft(user.id, draft.id);
+      setDraftBackupStatus("idle");
+      return;
+    }
+
+    setDraftBackupStatus("pending");
+
+    const timeout = window.setTimeout(() => {
+      const savedAt = new Date().toISOString();
+      saveLocalDraft(user.id, draft, savedAt);
+      setDraftBackupStatus("saved");
+    }, DRAFT_SAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [draft, isDraftDirty, screen, user.id]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
@@ -1116,6 +1237,8 @@ export default function CardsFinanceirosApp({
     const nextDraft = blankCard();
     setDraft(nextDraft);
     setSelectedImageId("");
+    setIsDraftDirty(false);
+    setDraftBackupStatus("idle");
     setMessages([]);
     setNotice("");
     setScreen("editor");
@@ -1225,19 +1348,24 @@ export default function CardsFinanceirosApp({
   }
 
   function openExistingCard(card: FinanceCard) {
-    const nextDraft = cloneCard(card);
+    const localDraft = resolveCardDraft(user.id, card);
+    const nextDraft = cloneCard(localDraft?.card ?? card);
     setDraft(nextDraft);
     setSelectedImageId(nextDraft.images[nextDraft.images.length - 1]?.id ?? "");
+    setIsDraftDirty(Boolean(localDraft));
+    setDraftBackupStatus(localDraft ? "restored" : "idle");
     setMessages([]);
-    setNotice("");
+    setNotice(localDraft ? "Rascunho recuperado neste aparelho." : "");
     setScreen("editor");
   }
 
   function patchDraft(patch: Partial<FinanceCard>) {
+    setIsDraftDirty(true);
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }
 
   function updatePayment(paymentId: string, patch: Partial<Payment>) {
+    setIsDraftDirty(true);
     setDraft((current) => {
       if (!current) return current;
 
@@ -1251,12 +1379,14 @@ export default function CardsFinanceirosApp({
   }
 
   function addPayment() {
+    setIsDraftDirty(true);
     setDraft((current) =>
       current ? { ...current, payments: [...current.payments, blankPayment()] } : current,
     );
   }
 
   function removePayment(paymentId: string) {
+    setIsDraftDirty(true);
     setDraft((current) =>
       current
         ? {
@@ -1300,12 +1430,16 @@ export default function CardsFinanceirosApp({
 
       setCards(syncedCards);
       setDraft(cloneCard(savedCard));
+      removeLocalDraft(user.id, savedCard.id);
+      setIsDraftDirty(false);
+      setDraftBackupStatus("idle");
       if (image) setSelectedImageId(image.id);
       setMessages([]);
       return savedCard;
     } catch (error) {
       setCards(cards);
       setDraft(draft);
+      setIsDraftDirty(true);
       setMessages([
         error instanceof Error ? error.message : "Nao foi possivel salvar o card.",
       ]);
@@ -1435,8 +1569,11 @@ export default function CardsFinanceirosApp({
 
     const nextCards = cards.filter((card) => card.id !== draft.id);
     setCards(nextCards);
+    removeLocalDraft(user.id, draft.id);
       await financeRepository.remove(draft.id, accessToken);
     setDraft(null);
+    setIsDraftDirty(false);
+    setDraftBackupStatus("idle");
     setScreen("home");
     setNotice("Card removido do histórico.");
   }
@@ -1590,10 +1727,20 @@ export default function CardsFinanceirosApp({
                     <span className="eyebrow">Recebimento</span>
                     <h2 id="receipt-form-title">Dados do card</h2>
                   </div>
-                  <button className="ghost-action" type="button" onClick={saveChanges} disabled={isBusy}>
-                    <Save size={18} aria-hidden="true" />
-                    Salvar
-                  </button>
+                  <div className="editor-actions">
+                    {draftBackupStatus !== "idle" ? (
+                      <span
+                        className={`draft-indicator is-${draftBackupStatus}`}
+                        role="status"
+                      >
+                        {draftBackupLabel(draftBackupStatus)}
+                      </span>
+                    ) : null}
+                    <button className="ghost-action" type="button" onClick={saveChanges} disabled={isBusy}>
+                      <Save size={18} aria-hidden="true" />
+                      Salvar
+                    </button>
+                  </div>
                 </div>
 
                 <div className="form-grid">
