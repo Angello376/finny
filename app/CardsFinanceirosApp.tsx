@@ -218,7 +218,8 @@ const DRAFTS_KEY_PREFIX = "cards-financeiros:drafts:";
 const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:";
 const DRAFT_SAVE_DELAY_MS = 450;
 
-const currentRelease: ReleaseAnnouncement = {
+// Set to null when there is no active release note to show before entering the app.
+const currentRelease: ReleaseAnnouncement | null = {
   id: "1.0",
   title: "Atualização 1.0",
   summary:
@@ -407,8 +408,8 @@ function draftStorageKey(userId: string) {
   return `${DRAFTS_KEY_PREFIX}${userId}`;
 }
 
-function releaseAckStorageKey(userId: string) {
-  return `${RELEASE_ACK_KEY_PREFIX}${userId}:${currentRelease.id}`;
+function releaseAckStorageKey(userId: string, releaseId: string) {
+  return `${RELEASE_ACK_KEY_PREFIX}${userId}:${releaseId}`;
 }
 
 function readDraftSnapshots(userId: string): Record<string, DraftSnapshot> {
@@ -1150,7 +1151,7 @@ export default function CardsFinanceirosApp({
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
   const [releaseGateStatus, setReleaseGateStatus] =
-    useState<ReleaseGateStatus>("checking");
+    useState<ReleaseGateStatus>(() => (currentRelease ? "checking" : "cleared"));
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
@@ -1260,8 +1261,13 @@ export default function CardsFinanceirosApp({
   }, []);
 
   useEffect(() => {
+    if (!currentRelease) {
+      setReleaseGateStatus("cleared");
+      return;
+    }
+
     setReleaseGateStatus(
-      localStorage.getItem(releaseAckStorageKey(user.id)) === "true"
+      localStorage.getItem(releaseAckStorageKey(user.id, currentRelease.id)) === "true"
         ? "cleared"
         : "required",
     );
@@ -1343,7 +1349,9 @@ export default function CardsFinanceirosApp({
   }
 
   function dismissReleaseAnnouncement() {
-    localStorage.setItem(releaseAckStorageKey(user.id), "true");
+    if (currentRelease) {
+      localStorage.setItem(releaseAckStorageKey(user.id, currentRelease.id), "true");
+    }
     setReleaseGateStatus("cleared");
   }
 
@@ -1732,7 +1740,7 @@ export default function CardsFinanceirosApp({
   const isAdminArea = screen === "admin" && user.role === "admin";
   const isGeneratingCard = busyAction === "generate";
 
-  if (releaseGateStatus !== "cleared") {
+  if (currentRelease && releaseGateStatus !== "cleared") {
     return (
       <main
         className={`release-gate${isStandaloneApp ? " is-standalone" : ""}`}

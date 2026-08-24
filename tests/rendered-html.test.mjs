@@ -176,9 +176,12 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /type ReleaseAnnouncement/);
   assert.match(appShell, /type ReleaseGateStatus = "checking" \| "required" \| "cleared"/);
   assert.match(appShell, /const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:"/);
-  assert.match(appShell, /const currentRelease: ReleaseAnnouncement/);
-  assert.match(appShell, /function releaseAckStorageKey/);
-  assert.match(appShell, /releaseGateStatus !== "cleared"/);
+  assert.match(appShell, /const currentRelease: ReleaseAnnouncement \| null/);
+  assert.match(appShell, /Set to null when there is no active release note/);
+  assert.match(appShell, /function releaseAckStorageKey\(userId: string, releaseId: string\)/);
+  assert.match(appShell, /currentRelease \? "checking" : "cleared"/);
+  assert.match(appShell, /if \(!currentRelease\) \{[\s\S]*setReleaseGateStatus\("cleared"\)/);
+  assert.match(appShell, /currentRelease && releaseGateStatus !== "cleared"/);
   assert.match(appShell, /function ReleaseGateLoading/);
   assert.match(appShell, /function ReleaseAnnouncementGate/);
   assert.match(appShell, /function getReleaseGreeting/);
