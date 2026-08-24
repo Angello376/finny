@@ -145,7 +145,13 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /function duplicateCard/);
   assert.match(appShell, /Continuar/);
   assert.match(appShell, /Revisar card/);
+  assert.match(appShell, /Finalizar card/);
+  assert.match(appShell, /Gerar Card/);
+  assert.match(appShell, /Exportar PDF/);
+  assert.match(appShell, /Compartilhar/);
   assert.match(appShell, /Duplicar card/);
+  assert.match(appShell, /Excluir card/);
+  assert.doesNotMatch(appShell, /Exportar PNG|Exportar JPG|Copiar imagem/);
   assert.match(appShell, /className="quick-search"/);
   assert.match(appShell, /className="home-disclosure"/);
   assert.match(appShell, /className=\{`status-pill/);
@@ -156,4 +162,5 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.home-disclosure/);
   assert.match(css, /\.status-pill\.success/);
   assert.match(css, /\.history-card-row/);
+  assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
 });

@@ -8,12 +8,8 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
-  Download,
-  Eye,
-  FileImage,
   FileText,
   History,
-  ImageDown,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -283,16 +279,6 @@ function formatShortDate(dateValue: string) {
   if (!dateValue) return "";
   const [, month, day] = dateValue.split("-");
   return day && month ? `${day}/${month}` : formatDateBR(dateValue);
-}
-
-function readableTimestamp(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 function getReceiptLabel(card: FinanceCard) {
@@ -1067,8 +1053,7 @@ export default function CardsFinanceirosApp({
   const [screen, setScreen] = useState<"home" | "editor" | "admin">("home");
   const [editorStep, setEditorStep] = useState<EditorStepId>("receipt");
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
-  const [selectedFormat, setSelectedFormat] = useState<CardFormatId>("square");
-  const [selectedImageId, setSelectedImageId] = useState<string>("");
+  const [selectedFormat] = useState<CardFormatId>("square");
   const [messages, setMessages] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -1117,7 +1102,6 @@ export default function CardsFinanceirosApp({
         if (recoveredDraft) {
           const nextDraft = cloneCard(recoveredDraft.card);
           setDraft(nextDraft);
-          setSelectedImageId(nextDraft.images[nextDraft.images.length - 1]?.id ?? "");
           setIsDraftDirty(true);
           setDraftBackupStatus("restored");
           setNotice("Rascunho recuperado neste aparelho.");
@@ -1225,9 +1209,6 @@ export default function CardsFinanceirosApp({
   const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);
   const metrics = useMemo(() => (draft ? getMetrics(draft) : getMetrics(blankCard())), [draft]);
   const currentFormat = cardFormats.find((format) => format.id === selectedFormat) ?? cardFormats[0];
-  const currentImage =
-    draft?.images.find((image) => image.id === selectedImageId) ??
-    draft?.images[draft.images.length - 1];
   const hasUserInput =
     Boolean(draft?.type || draft?.date || draft?.amountCents || draft?.description.trim()) ||
     Boolean(draft?.payments.some(isMeaningfulPayment));
@@ -1235,7 +1216,6 @@ export default function CardsFinanceirosApp({
   function openNewCard() {
     const nextDraft = blankCard();
     setDraft(nextDraft);
-    setSelectedImageId("");
     setIsDraftDirty(false);
     setDraftBackupStatus("idle");
     setMessages([]);
@@ -1347,7 +1327,6 @@ export default function CardsFinanceirosApp({
     const localDraft = resolveCardDraft(user.id, card);
     const nextDraft = cloneCard(localDraft?.card ?? card);
     setDraft(nextDraft);
-    setSelectedImageId(nextDraft.images[nextDraft.images.length - 1]?.id ?? "");
     setIsDraftDirty(Boolean(localDraft));
     setDraftBackupStatus(localDraft ? "restored" : "idle");
     setMessages([]);
@@ -1369,7 +1348,6 @@ export default function CardsFinanceirosApp({
     };
 
     setDraft(nextDraft);
-    setSelectedImageId("");
     setIsDraftDirty(true);
     setDraftBackupStatus("pending");
     setMessages([]);
@@ -1485,7 +1463,6 @@ export default function CardsFinanceirosApp({
     );
     setCards(nextCards);
     setDraft(cloneCard(nextCard));
-    if (image) setSelectedImageId(image.id);
 
     try {
       const savedCard = await financeRepository.save(nextCard, accessToken);
@@ -1499,7 +1476,6 @@ export default function CardsFinanceirosApp({
       removeLocalDraft(user.id, savedCard.id);
       setIsDraftDirty(false);
       setDraftBackupStatus("idle");
-      if (image) setSelectedImageId(image.id);
       setMessages([]);
       return savedCard;
     } catch (error) {
@@ -1551,7 +1527,7 @@ export default function CardsFinanceirosApp({
         dataUrl,
       };
       const saved = await persistDraft(image);
-      if (saved) setNotice("Imagem gerada e histórico atualizado.");
+      if (saved) setNotice("Card gerado e histórico atualizado.");
       return image;
     } finally {
       setIsBusy(false);
@@ -1590,32 +1566,10 @@ export default function CardsFinanceirosApp({
     }
   }
 
-  async function exportImage(mimeType: "image/png" | "image/jpeg") {
-    const image = await renderExportImage(mimeType, "export");
-    if (!image) return;
-
-    const extension = mimeType === "image/png" ? "png" : "jpg";
-    downloadBlob(dataUrlToBlob(image.dataUrl), buildFileName(extension));
-  }
-
   async function exportPdf() {
     const image = await renderExportImage("image/jpeg", "export");
     if (!image) return;
     downloadBlob(createPdfBlob(image.dataUrl, image.width, image.height), buildFileName("pdf"));
-  }
-
-  async function copyImage() {
-    const image = await renderExportImage("image/png", "copy");
-    if (!image) return;
-
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ [image.mimeType]: dataUrlToBlob(image.dataUrl) }),
-      ]);
-      setNotice("Imagem copiada para a área de transferência.");
-    } catch {
-      setMessages(["Seu navegador não permitiu copiar a imagem. Use Exportar PNG."]);
-    }
   }
 
   async function shareImage() {
@@ -1636,7 +1590,7 @@ export default function CardsFinanceirosApp({
     }
 
     downloadBlob(dataUrlToBlob(image.dataUrl), buildFileName("png"));
-    setNotice("Compartilhamento direto indisponível. Baixei a imagem para você.");
+    setNotice("Compartilhamento direto indisponível. Baixei o card para você.");
   }
 
   async function deleteCurrentCard() {
@@ -2065,56 +2019,10 @@ export default function CardsFinanceirosApp({
               <section className="preview-panel" aria-labelledby="preview-title">
                 <div className="section-heading">
                   <div>
-                    <span className="eyebrow">Imagem</span>
-                    <h2 id="preview-title">Card gerado</h2>
+                    <span className="eyebrow">Ações</span>
+                    <h2 id="preview-title">Finalizar card</h2>
                   </div>
-                  <select
-                    className="format-select"
-                    value={selectedFormat}
-                    onChange={(event) => setSelectedFormat(event.target.value as CardFormatId)}
-                    aria-label="Formato da imagem"
-                  >
-                    {cardFormats.map((format) => (
-                      <option key={format.id} value={format.id}>
-                        {format.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-
-                <div className="card-preview-frame">
-                  {currentImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={currentImage.id}
-                      src={currentImage.dataUrl}
-                      alt="Card financeiro gerado"
-                    />
-                  ) : (
-                    <EmptyState
-                      icon={<FileImage size={26} aria-hidden="true" />}
-                      title="Imagem ainda não gerada"
-                      text="Preencha os dados e gere o card para visualizar."
-                    />
-                  )}
-                </div>
-
-                {draft.images.length ? (
-                  <div className="versions-list" aria-label="Versões de imagem salvas">
-                    <span>Versões salvas</span>
-                    {draft.images.map((image) => (
-                      <button
-                        key={image.id}
-                        className={image.id === currentImage?.id ? "is-current" : ""}
-                        type="button"
-                        onClick={() => setSelectedImageId(image.id)}
-                      >
-                        <Eye size={14} aria-hidden="true" />
-                        {readableTimestamp(image.createdAt)} · {image.width}x{image.height}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
 
                 <div className="preview-actions">
                   <button
@@ -2133,30 +2041,17 @@ export default function CardsFinanceirosApp({
                     </span>
                   </button>
 
-                  <button type="button" className="tool-action" onClick={() => exportImage("image/png")} disabled={isBusy}>
-                    <Download size={17} aria-hidden="true" />
-                    Exportar PNG
-                  </button>
-                  <button type="button" className="tool-action" onClick={() => exportImage("image/jpeg")} disabled={isBusy}>
-                    <ImageDown size={17} aria-hidden="true" />
-                    Exportar JPG
-                  </button>
                   <button type="button" className="tool-action" onClick={exportPdf} disabled={isBusy}>
                     <FileText size={17} aria-hidden="true" />
                     Exportar PDF
-                  </button>
-                  <button type="button" className="tool-action" onClick={copyImage} disabled={isBusy}>
-                    <Copy size={17} aria-hidden="true" />
-                    Copiar imagem
                   </button>
                   <button type="button" className="tool-action" onClick={shareImage} disabled={isBusy}>
                     <Share2 size={17} aria-hidden="true" />
                     Compartilhar
                   </button>
-                </div>
 
-                {cards.some((card) => card.id === draft.id) ? (
-                  <div className="saved-card-actions">
+                  {cards.some((card) => card.id === draft.id) ? (
+                    <>
                     <button className="tool-action" type="button" onClick={() => duplicateCard(draft)}>
                       <Copy size={17} aria-hidden="true" />
                       Duplicar card
@@ -2165,8 +2060,9 @@ export default function CardsFinanceirosApp({
                       <Trash2 size={17} aria-hidden="true" />
                       Excluir card
                     </button>
-                  </div>
-                ) : null}
+                    </>
+                  ) : null}
+                </div>
               </section>
             </aside>
             ) : null}
@@ -2345,7 +2241,7 @@ function HomeScreen({
       </div>
 
       <aside className="home-side">
-        <details className="home-disclosure" defaultOpen={hasActiveFilters}>
+        <details className="home-disclosure" open={hasActiveFilters || undefined}>
           <summary>
             <span>
               <SlidersHorizontal size={17} aria-hidden="true" />

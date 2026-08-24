@@ -833,7 +833,6 @@ button:disabled {
 .icon-button:hover,
 .history-card-open:hover,
 .history-duplicate:hover,
-.versions-list button:hover,
 .new-card-hero:hover {
   transform: translateY(-1px);
 }
@@ -1232,32 +1231,27 @@ button:disabled {
 .payments-list,
 .filters-grid,
 .stats-grid,
-.preview-actions,
-.versions-list {
+.preview-actions {
   display: grid;
   gap: 12px;
 }
 
 .history-card-row,
-.versions-list button,
 .access-row {
   animation: list-item-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .history-card-row:nth-child(2),
-.versions-list button:nth-child(2),
 .access-row:nth-child(2) {
   animation-delay: 30ms;
 }
 
 .history-card-row:nth-child(3),
-.versions-list button:nth-child(3),
 .access-row:nth-child(3) {
   animation-delay: 60ms;
 }
 
 .history-card-row:nth-child(n + 4),
-.versions-list button:nth-child(n + 4),
 .access-row:nth-child(n + 4) {
   animation-delay: 90ms;
 }
@@ -1402,8 +1396,7 @@ button:disabled {
 
 .field input,
 .field select,
-.field textarea,
-.format-select {
+.field textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -1432,8 +1425,7 @@ button:disabled {
 
 .field input:focus,
 .field select:focus,
-.field textarea:focus,
-.format-select:focus {
+.field textarea:focus {
   border-color: rgba(34, 197, 94, 0.58);
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
 }
@@ -1894,69 +1886,8 @@ button:disabled {
   top: 24px;
 }
 
-.format-select {
-  width: auto;
-  min-width: 144px;
-}
-
-.card-preview-frame {
-  display: grid;
-  min-height: 342px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(239, 68, 68, 0.05)),
-    rgba(15, 23, 42, 0.62);
-}
-
-[data-theme="light"] .card-preview-frame {
-  background:
-    linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(239, 68, 68, 0.05)),
-    rgba(248, 250, 252, 0.84);
-}
-
-.card-preview-frame img {
-  display: block;
-  width: 100%;
-  max-height: 68vh;
-  animation: generated-card-reveal 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  object-fit: contain;
-  -webkit-user-drag: none;
-}
-
-.versions-list {
-  margin-top: 14px;
-}
-
-.versions-list > span {
-  color: var(--subtle);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.versions-list button {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(148, 163, 184, 0.08);
-  color: var(--muted);
-  padding: 9px 10px;
-  text-align: left;
-}
-
-.versions-list button.is-current {
-  border-color: rgba(34, 197, 94, 0.34);
-  color: var(--text);
-}
-
 .preview-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 14px;
+  grid-template-columns: 1fr;
 }
 
 .preview-actions .primary-action {
@@ -2304,10 +2235,8 @@ button:disabled {
   .notice,
   .payment-item,
   .history-card-row,
-  .versions-list button,
   .access-row,
   .metric-tile strong,
-  .card-preview-frame img,
   .generate-card-action.is-generating .generate-card-liquid,
   .generate-card-liquid::before,
   .generate-card-liquid::after,
@@ -2337,12 +2266,6 @@ button:disabled {
   width: 100%;
   border: 1px solid rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.08);
-}
-
-.saved-card-actions {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
 }
 
 .ios-install-card {
@@ -2609,8 +2532,7 @@ button:disabled {
   .primary-action,
   .secondary-action,
   .ghost-action,
-  .tool-action,
-  .format-select {
+  .tool-action {
     width: 100%;
     min-width: 0;
     white-space: normal;
@@ -2678,14 +2600,6 @@ button:disabled {
   .history-card-open .status-pill {
     grid-column: 2;
     justify-self: start;
-  }
-
-  .card-preview-frame {
-    min-height: 260px;
-  }
-
-  .card-preview-frame img {
-    max-height: 60vh;
   }
 
   .access-row {
