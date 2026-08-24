@@ -40,6 +40,8 @@ type AuthUrlState = {
   isRecovery: boolean;
 };
 
+const SIGNIN_LOADING_MIN_MS = 5000;
+
 export default function AuthShell() {
   const supabase = useMemo(
     () => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY),
@@ -182,6 +184,7 @@ export default function AuthShell() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const loadingStartedAt = Date.now();
     setIsSubmitting(true);
     setPendingAuthAction(mode === "signup" ? "signup" : "signin");
     setStatusMessage("");
@@ -274,7 +277,10 @@ export default function AuthShell() {
 
       if (result.data.session) {
         setSession(result.data.session);
-        await loadAppUser(result.data.session.access_token);
+        await Promise.all([
+          loadAppUser(result.data.session.access_token),
+          waitForMinimumLoadingTime(loadingStartedAt, SIGNIN_LOADING_MIN_MS),
+        ]);
       }
     } finally {
       setIsSubmitting(false);
@@ -439,11 +445,11 @@ export default function AuthShell() {
     setStatusMessage("");
   }
 
-  if (isLoading) {
+  if (isLoading || (isSubmitting && pendingAuthAction === "signin")) {
     return (
-      <LoginShell>
-        <LoginLoading message="Carregando acesso..." />
-      </LoginShell>
+      <LoginLoadingScreen
+        message={authLoadingMessage(pendingAuthAction, mode)}
+      />
     );
   }
 
@@ -728,6 +734,16 @@ function createProfileNameMetadata(firstName: string) {
   };
 }
 
+function waitForMinimumLoadingTime(startedAt: number, minimumMs: number) {
+  const remainingMs = Math.max(0, minimumMs - (Date.now() - startedAt));
+
+  if (remainingMs === 0) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, remainingMs);
+  });
+}
+
 function getAuthUrlState(): AuthUrlState {
   const url = new URL(window.location.href);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -766,6 +782,9 @@ function LoginLoading({ message }: { message: string }) {
   return (
     <div className="login-loading" role="status" aria-live="polite">
       <LoadingCharacterImage />
+      <div className="login-loading-progress" aria-hidden="true">
+        <span />
+      </div>
       <p className="login-loading-message">{message}</p>
     </div>
   );

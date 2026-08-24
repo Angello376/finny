@@ -416,8 +416,9 @@ button:disabled {
 }
 
 .login-loading-screen .login-loading {
+  width: min(86vw, 430px);
   min-height: 0;
-  gap: 0;
+  gap: 18px;
   padding: 0;
 }
 
@@ -448,8 +449,32 @@ button:disabled {
   line-height: 1.45;
 }
 
+.login-loading-progress {
+  position: relative;
+  overflow: hidden;
+  width: min(220px, 58vw);
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(229, 231, 235, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 14px 34px rgba(2, 3, 4, 0.24);
+}
+
+.login-loading-progress span {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--login-blue), #3b82f6 58%, var(--login-yellow));
+  box-shadow: 0 0 18px rgba(37, 99, 235, 0.55);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: login-loading-progress 5000ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
 .login-loading-screen .login-loading-media {
-  width: min(76vw, 360px);
+  width: min(76vw, 390px);
 }
 
 .login-loading-screen .login-loading-message {
@@ -2332,6 +2357,17 @@ button:disabled {
   }
 }
 
+@keyframes login-loading-progress {
+  0% {
+    transform: scaleX(0);
+  }
+
+  72%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes auth-mark-enter {
   0% {
     opacity: 0;
@@ -2588,6 +2624,7 @@ button:disabled {
   .login-muted-action,
   .login-message,
   .login-loading,
+  .login-loading-progress span,
   .login-assurances span,
   .login-button.is-submitting svg,
   .release-gate,
@@ -2628,6 +2665,10 @@ button:disabled {
 
   .progress-fill {
     transition: none;
+  }
+
+  .login-loading-progress span {
+    transform: scaleX(0.72);
   }
 
   .generate-card-action.is-generating .generate-card-liquid {

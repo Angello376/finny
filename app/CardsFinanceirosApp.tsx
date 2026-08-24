@@ -240,21 +240,19 @@ const DRAFT_SAVE_DELAY_MS = 450;
 
 // Set to null when there is no active release note to show before entering the app.
 const currentRelease: ReleaseAnnouncement | null = {
-  id: "1.1",
-  title: "Atualização 1.1",
+  id: "1.2",
+  title: "Atualização 1.2",
   summary:
-    "Deixamos o fluxo mais simples para criar, encontrar e duplicar seus cards.",
+    "A entrada no Finny ficou mais limpa e tranquila.",
   highlights: [
-    "Card em 3 etapas.",
-    "Histórico mensal mais claro.",
-    "Filtro por mês e ano.",
-    "Pagamentos fixados.",
+    "Carregamento mais bonito ao entrar.",
+    "Tela inicial sem botão repetido.",
+    "Experiência mais limpa no login.",
   ],
   steps: [
-    "Clique em Novo Card e preencha recebimento, pagamentos e revisão.",
-    "No histórico, veja separado o que entrou, o que foi pago e o que sobrou em cada mês.",
-    "Use o filtro escolhendo apenas mês e ano para achar seus cards mais rápido.",
-    "Fixe pagamentos recorrentes para eles continuarem quando duplicar um card.",
+    "Entre normalmente com seu e-mail e senha.",
+    "Aguarde o Finny finalizar o carregamento.",
+    "Depois disso, o app abre direto para seus cards.",
   ],
 };
 
