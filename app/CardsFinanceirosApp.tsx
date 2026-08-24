@@ -2005,12 +2005,12 @@ export default function CardsFinanceirosApp({
             <span className="eyebrow">{isAdminArea ? "Admin" : "Módulo"}</span>
             <h1>{isAdminArea ? "Controle de acesso" : "Cards Financeiros"}</h1>
           </div>
-          {isAdminArea ? null : (
+          {!isAdminArea && screen !== "home" ? (
             <button className="primary-action" type="button" onClick={openNewCard}>
               <Plus size={20} aria-hidden="true" />
               Novo Card
             </button>
-          )}
+          ) : null}
         </header>
 
         {notice ? (
