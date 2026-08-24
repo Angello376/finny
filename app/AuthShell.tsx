@@ -21,12 +21,18 @@ type AppUser = {
   id: string;
   displayName: string;
   email: string;
+  requiresProfileName: boolean;
   role: "admin" | "user";
   status: "active" | "blocked";
 };
 
 type AuthMode = "signin" | "signup" | "update-password";
-type PendingAuthAction = "signin" | "signup" | "reset-password" | "update-password";
+type PendingAuthAction =
+  | "signin"
+  | "signup"
+  | "reset-password"
+  | "update-password"
+  | "profile-name";
 
 type AuthUrlState = {
   code: string | null;
@@ -40,6 +46,8 @@ export default function AuthShell() {
     [],
   );
   const [mode, setMode] = useState<AuthMode>("signin");
+  const [firstName, setFirstName] = useState("");
+  const [profileFirstName, setProfileFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -182,6 +190,13 @@ export default function AuthShell() {
       const credentials = { email: email.trim().toLowerCase(), password };
 
       if (mode === "signup") {
+        const normalizedFirstName = normalizeProfileName(firstName);
+
+        if (!isValidProfileName(normalizedFirstName)) {
+          setStatusMessage("Informe apenas seu primeiro nome para criar o acesso.");
+          return;
+        }
+
         if (emailCooldown > 0) {
           setStatusMessage(
             `Aguarde ${emailCooldown}s antes de solicitar outro e-mail.`,
@@ -210,7 +225,10 @@ export default function AuthShell() {
 
         const { error } = await supabase.auth.signUp({
           ...credentials,
-          options: { emailRedirectTo: window.location.origin },
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: createProfileNameMetadata(normalizedFirstName),
+          },
         });
 
         if (error) {
@@ -236,6 +254,7 @@ export default function AuthShell() {
         await supabase.auth.signOut();
         setSession(null);
         setUser(null);
+        setFirstName("");
         setPassword("");
         setShowPassword(false);
         setIsPasswordFocused(false);
@@ -257,6 +276,55 @@ export default function AuthShell() {
         setSession(result.data.session);
         await loadAppUser(result.data.session.access_token);
       }
+    } finally {
+      setIsSubmitting(false);
+      setPendingAuthAction(null);
+    }
+  }
+
+  async function handleProfileNameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const normalizedFirstName = normalizeProfileName(profileFirstName);
+
+    if (!isValidProfileName(normalizedFirstName)) {
+      setStatusMessage("Informe apenas seu primeiro nome para continuar.");
+      return;
+    }
+
+    if (!session) {
+      setStatusMessage("Sua sessao expirou. Entre novamente.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setPendingAuthAction("profile-name");
+    setStatusMessage("");
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: createProfileNameMetadata(normalizedFirstName),
+      });
+
+      if (error) {
+        setStatusMessage(authErrorMessage(error.message));
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      const nextSession = data.session ?? session;
+      setSession(nextSession);
+      await loadAppUser(nextSession.access_token);
+      setUser((current) =>
+        current
+          ? {
+              ...current,
+              displayName: normalizedFirstName,
+              requiresProfileName: false,
+            }
+          : current,
+      );
+      setProfileFirstName("");
     } finally {
       setIsSubmitting(false);
       setPendingAuthAction(null);
@@ -361,6 +429,8 @@ export default function AuthShell() {
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
+    setFirstName("");
+    setProfileFirstName("");
     setPassword("");
     setNewPassword("");
     setShowPassword(false);
@@ -373,6 +443,60 @@ export default function AuthShell() {
     return (
       <LoginShell>
         <LoginLoading message="Carregando acesso..." />
+      </LoginShell>
+    );
+  }
+
+  if (session && user?.requiresProfileName) {
+    return (
+      <LoginShell>
+        <form
+          key="profile-name"
+          className="login-form"
+          onSubmit={handleProfileNameSubmit}
+        >
+          <p className="login-helper">
+            Antes de abrir o Finny, informe seu primeiro nome.
+          </p>
+
+          <label>
+            <span>Primeiro nome</span>
+            <input
+              autoComplete="given-name"
+              maxLength={40}
+              onChange={(event) => setProfileFirstName(event.target.value)}
+              placeholder="Seu primeiro nome"
+              required
+              type="text"
+              value={profileFirstName}
+            />
+          </label>
+
+          {statusMessage ? (
+            <p className="login-message" role="status">
+              {statusMessage}
+            </p>
+          ) : null}
+
+          <button
+            className={`login-button${isSubmitting ? " is-submitting" : ""}`}
+            disabled={isSubmitting}
+            type="submit"
+            aria-busy={isSubmitting}
+          >
+            <UserPlus size={19} aria-hidden="true" />
+            Salvar e abrir Finny
+          </button>
+        </form>
+
+        <button
+          className="login-muted-action"
+          disabled={isSubmitting}
+          type="button"
+          onClick={handleSignOut}
+        >
+          Trocar conta
+        </button>
       </LoginShell>
     );
   }
@@ -453,6 +577,21 @@ export default function AuthShell() {
   return (
     <LoginShell passwordCharacterActive={isPasswordCharacterActive}>
       <form key={mode} className="login-form" onSubmit={handleSubmit}>
+        {mode === "signup" ? (
+          <label>
+            <span>Primeiro nome</span>
+            <input
+              autoComplete="given-name"
+              maxLength={40}
+              onChange={(event) => setFirstName(event.target.value)}
+              placeholder="Seu primeiro nome"
+              required
+              type="text"
+              value={firstName}
+            />
+          </label>
+        ) : null}
+
         <label>
           <span>E-mail</span>
           <input
@@ -537,6 +676,7 @@ export default function AuthShell() {
         type="button"
         onClick={() => {
           setMode(mode === "signin" ? "signup" : "signin");
+          setFirstName("");
           setIsPasswordFocused(false);
           setStatusMessage("");
         }}
@@ -572,6 +712,22 @@ function authErrorMessage(message: string) {
   return message;
 }
 
+function normalizeProfileName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isValidProfileName(value: string) {
+  return value.length >= 2 && !value.includes("@");
+}
+
+function createProfileNameMetadata(firstName: string) {
+  return {
+    first_name: firstName,
+    name: firstName,
+    display_name: firstName,
+  };
+}
+
 function getAuthUrlState(): AuthUrlState {
   const url = new URL(window.location.href);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -600,6 +756,7 @@ function authLoadingMessage(
 ) {
   if (action === "reset-password") return "Enviando link seguro...";
   if (action === "update-password") return "Salvando nova senha...";
+  if (action === "profile-name") return "Salvando seu perfil...";
   if (action === "signup") return "Criando acesso...";
   if (action === "signin") return "Validando acesso...";
   return mode === "update-password" ? "Preparando senha..." : "Preparando acesso...";

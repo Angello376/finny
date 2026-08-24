@@ -21,6 +21,7 @@ test("uses the real authenticated app shell instead of the starter preview", asy
   assert.match(appShell, /<strong>Finny<\/strong>/);
   assert.match(appShell, /src="\/assets\/brand\/finny-logo\.png"/);
   assert.match(authShell, /session && user/);
+  assert.match(authShell, /requiresProfileName/);
   assert.match(authShell, /<CardsFinanceirosApp/);
   assert.doesNotMatch(authShell, /FinnyMascot|LoginFinny|LOGIN_FINNY/);
   assert.doesNotMatch(page + layout + authShell, /_sites-preview|SkeletonPreview|react-loading-skeleton/);
@@ -69,6 +70,14 @@ test("uses the requested animated login palette without mascot UI", async () => 
   assert.match(authShell, /Esqueci minha senha/);
   assert.match(authShell, /Primeiro acesso\? Criar senha/);
   assert.match(authShell, /Criar minha senha/);
+  assert.match(authShell, /firstName/);
+  assert.match(authShell, /profileFirstName/);
+  assert.match(authShell, /Primeiro nome/);
+  assert.match(authShell, /handleProfileNameSubmit/);
+  assert.match(authShell, /Salvar e abrir Finny/);
+  assert.match(authShell, /supabase\.auth\.updateUser\(\{\s*data: createProfileNameMetadata/);
+  assert.match(authShell, /data: createProfileNameMetadata\(normalizedFirstName\)/);
+  assert.match(authShell, /function isValidProfileName/);
   assert.match(authShell, /Eye,/);
   assert.match(authShell, /EyeOff,/);
   assert.match(authShell, /aria-label=\{showPassword \? "Ocultar senha" : "Mostrar senha"\}/);
@@ -88,7 +97,7 @@ test("uses the requested animated login palette without mascot UI", async () => 
   assert.match(css, /prefers-reduced-motion[\s\S]*\.login-character-stage/);
   assert.match(css, /prefers-reduced-motion[\s\S]*\.login-character-image/);
   assert.doesNotMatch(authShell, /<h1 id="login-title">Cards Financeiros<\/h1>/);
-  assert.doesNotMatch(authShell + css, /Finny|finny|mascot|assets\/mascot/);
+  assert.doesNotMatch(authShell + css, /FinnyMascot|mascot|assets\/mascot/);
 });
 
 test("keeps Finny PWA branding and removes obsolete starter assets", async () => {
@@ -189,12 +198,12 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /\/assets\/brand\/finny-release-updates\.png/);
   assert.doesNotMatch(appShell, /<header className="release-gate-header">[\s\S]*className="release-gate-logo"/);
   assert.doesNotMatch(appShell, /Olá, \{user\.displayName\}/);
-  assert.match(appShell, /title: "Atualização 1\.0"/);
+  assert.match(appShell, /title: "Atualização 1\.1"/);
   assert.match(appShell, /Novidades/);
-  assert.match(appShell, /Card em 3 etapas/);
-  assert.match(appShell, /Resumo mensal no histórico/);
-  assert.match(appShell, /Pagamentos fixados/);
-  assert.match(appShell, /Ao duplicar um card, os pagamentos fixados são mantidos no novo card/);
+  assert.match(appShell, /Primeiro nome obrigatório/);
+  assert.match(appShell, /Cadastro novo já pede nome/);
+  assert.match(appShell, /Contas antigas atualizam uma vez/);
+  assert.match(appShell, /essa etapa some e o app abre normalmente/);
   assert.match(appShell, /Ver passo a passo/);
   assert.match(appShell, /Entendi, abrir o app/);
   assert.doesNotMatch(appShell, /showReleaseAnnouncement/);
@@ -246,7 +255,8 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(cardStorage, /pinned: boolean/);
   assert.match(cardStorage, /pinned: Boolean\(payment\.pinned\)/);
   assert.match(cardStorage, /parseJson<Payment\[\]>\(row\.paymentsJson, \[\]\)\.map\(normalizePayment\)/);
-  assert.match(supabaseAuth, /function getSupabaseDisplayName/);
+  assert.match(supabaseAuth, /requiresProfileName: !profileName\.hasRealName/);
+  assert.match(supabaseAuth, /function getSupabaseProfileName/);
   assert.match(supabaseAuth, /metadataText\(metadata, "full_name"\)/);
   assert.match(supabaseAuth, /metadataText\(metadata, "display_name"\)/);
   assert.match(supabaseAuth, /function isRealDisplayName/);

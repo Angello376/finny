@@ -11,6 +11,7 @@ export type AuthenticatedAppUser = {
   id: string;
   email: string;
   displayName: string;
+  requiresProfileName: boolean;
   role: AppRole;
   status: AccessStatus;
 };
@@ -90,11 +91,14 @@ export async function requireSupabaseUser(request: Request) {
     };
   }
 
+  const profileName = getSupabaseProfileName(authUser.user_metadata, email);
+
   return {
     user: {
       id: authUser.id,
       email,
-      displayName: getSupabaseDisplayName(authUser.user_metadata, email),
+      displayName: profileName.displayName,
+      requiresProfileName: !profileName.hasRealName,
       role: access.role === "admin" ? "admin" : "user",
       status: "active" as const,
     },
@@ -197,7 +201,7 @@ function getBearerToken(request: Request) {
   return token;
 }
 
-function getSupabaseDisplayName(
+function getSupabaseProfileName(
   userMetadata: Record<string, unknown> | null | undefined,
   email: string,
 ) {
@@ -213,10 +217,14 @@ function getSupabaseDisplayName(
     fullNameFromParts,
   ];
 
-  return (
+  const displayName =
     candidates.find((candidate) => isRealDisplayName(candidate, email, emailPrefix)) ??
-    emailPrefix
-  );
+    "";
+
+  return {
+    displayName: displayName || emailPrefix,
+    hasRealName: Boolean(displayName),
+  };
 }
 
 function metadataText(metadata: Record<string, unknown>, key: string) {

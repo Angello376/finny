@@ -139,6 +139,7 @@ type AppUser = {
   id: string;
   displayName: string;
   email: string;
+  requiresProfileName: boolean;
   role: "admin" | "user";
   status: "active" | "blocked";
 };
@@ -220,21 +221,19 @@ const DRAFT_SAVE_DELAY_MS = 450;
 
 // Set to null when there is no active release note to show before entering the app.
 const currentRelease: ReleaseAnnouncement | null = {
-  id: "1.0",
-  title: "Atualização 1.0",
+  id: "1.1",
+  title: "Atualização 1.1",
   summary:
-    "Melhoramos a criação dos cards, o histórico mensal e a busca por período.",
+    "Agora o Finny usa seu primeiro nome para deixar o app mais pessoal.",
   highlights: [
-    "Card em 3 etapas.",
-    "Resumo mensal no histórico.",
-    "Filtro por mês e ano.",
-    "Pagamentos fixados.",
+    "Primeiro nome obrigatório.",
+    "Cadastro novo já pede nome.",
+    "Contas antigas atualizam uma vez.",
   ],
   steps: [
-    "Clique em Novo Card e siga as etapas: recebimento, pagamentos e revisão.",
-    "No histórico, confira o total recebido, pago e o que sobrou em cada mês.",
-    "Use apenas mês e ano no filtro para encontrar os cards do período.",
-    "Ao duplicar um card, os pagamentos fixados são mantidos no novo card.",
+    "Se a tela pedir seu nome, informe apenas seu primeiro nome.",
+    "Clique em Salvar e abrir Finny.",
+    "Depois disso, essa etapa some e o app abre normalmente nas próximas vezes.",
   ],
 };
 
