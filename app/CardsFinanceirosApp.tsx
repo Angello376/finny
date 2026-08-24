@@ -10,7 +10,9 @@ import {
   CreditCard,
   FileText,
   History,
+  Info,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Moon,
   PieChart,
@@ -117,6 +119,14 @@ type HistoryMonthGroup = {
   paymentCount: number;
 };
 
+type ReleaseAnnouncement = {
+  id: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  steps: string[];
+};
+
 type DraftBackupStatus = "idle" | "pending" | "saved" | "restored";
 
 type BusyAction = "save" | "generate" | "export" | "copy" | "share" | null;
@@ -203,7 +213,25 @@ const monthNames = [
 const THEME_KEY = "cards-financeiros:theme";
 const IOS_INSTALL_HINT_KEY = "cards-financeiros:ios-install-hint-dismissed";
 const DRAFTS_KEY_PREFIX = "cards-financeiros:drafts:";
+const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:";
 const DRAFT_SAVE_DELAY_MS = 450;
+
+const currentRelease: ReleaseAnnouncement = {
+  id: "2026-08-24-simplified-history",
+  title: "Busca do histórico mais simples",
+  summary:
+    "Agora ficou mais facil encontrar seus cards: o filtro usa apenas mes e ano, com os meses mais destacados no historico.",
+  highlights: [
+    "Filtro limpo com somente mes e ano.",
+    "Resumo mensal separado por periodo.",
+    "Pagamentos fixados continuam ao duplicar um card.",
+  ],
+  steps: [
+    "Abra Cards Financeiros e va ate a area de Filtros.",
+    "Escolha o mes e digite o ano que deseja consultar.",
+    "Toque no card encontrado para editar, duplicar, gerar ou compartilhar.",
+  ],
+};
 
 const emptyFilters: FilterState = {
   month: "",
@@ -373,6 +401,10 @@ function cardHasDraftContent(card: FinanceCard) {
 
 function draftStorageKey(userId: string) {
   return `${DRAFTS_KEY_PREFIX}${userId}`;
+}
+
+function releaseAckStorageKey(userId: string) {
+  return `${RELEASE_ACK_KEY_PREFIX}${userId}:${currentRelease.id}`;
 }
 
 function readDraftSnapshots(userId: string): Record<string, DraftSnapshot> {
@@ -1097,6 +1129,7 @@ export default function CardsFinanceirosApp({
     useState<DraftBackupStatus>("idle");
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
+  const [showReleaseAnnouncement, setShowReleaseAnnouncement] = useState(false);
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
@@ -1206,6 +1239,12 @@ export default function CardsFinanceirosApp({
   }, []);
 
   useEffect(() => {
+    setShowReleaseAnnouncement(
+      localStorage.getItem(releaseAckStorageKey(user.id)) !== "true",
+    );
+  }, [user.id]);
+
+  useEffect(() => {
     const standalone = isRunningAsInstalledApp();
     const ios = isIosDevice();
     const dismissed = localStorage.getItem(IOS_INSTALL_HINT_KEY) === "true";
@@ -1278,6 +1317,11 @@ export default function CardsFinanceirosApp({
   function dismissIosInstallHint() {
     localStorage.setItem(IOS_INSTALL_HINT_KEY, "true");
     setShowIosInstallHint(false);
+  }
+
+  function dismissReleaseAnnouncement() {
+    localStorage.setItem(releaseAckStorageKey(user.id), "true");
+    setShowReleaseAnnouncement(false);
   }
 
   async function saveAccessUser() {
@@ -1785,6 +1829,13 @@ export default function CardsFinanceirosApp({
           </div>
         ) : null}
 
+        {showReleaseAnnouncement ? (
+          <ReleaseAnnouncementCard
+            release={currentRelease}
+            onDismiss={dismissReleaseAnnouncement}
+          />
+        ) : null}
+
         {screen === "home" ? (
           <HomeScreen
             cards={cards}
@@ -2252,6 +2303,67 @@ function ReviewStep({
         <button className="secondary-action" type="button" onClick={onSave} disabled={isBusy}>
           <Save size={17} aria-hidden="true" />
           Salvar
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ReleaseAnnouncementCard({
+  release,
+  onDismiss,
+}: {
+  release: ReleaseAnnouncement;
+  onDismiss: () => void;
+}) {
+  const [showSteps, setShowSteps] = useState(false);
+
+  return (
+    <section className="release-announcement" aria-labelledby="release-title" aria-live="polite">
+      <span className="release-announcement-icon">
+        <Info size={20} aria-hidden="true" />
+      </span>
+
+      <div className="release-announcement-content">
+        <span className="eyebrow">Novidade</span>
+        <h2 id="release-title">{release.title}</h2>
+        <p>{release.summary}</p>
+
+        <ul className="release-highlights" aria-label="Resumo do que mudou">
+          {release.highlights.map((highlight) => (
+            <li key={highlight}>
+              <CheckCircle2 size={15} aria-hidden="true" />
+              {highlight}
+            </li>
+          ))}
+        </ul>
+
+        {showSteps ? (
+          <div className="release-steps">
+            <h3>
+              <ListChecks size={16} aria-hidden="true" />
+              Passo a passo
+            </h3>
+            <ol>
+              {release.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="release-announcement-actions">
+        <button
+          className="ghost-action"
+          type="button"
+          onClick={() => setShowSteps((current) => !current)}
+        >
+          <ListChecks size={16} aria-hidden="true" />
+          {showSteps ? "Ocultar passo a passo" : "Ver passo a passo"}
+        </button>
+        <button className="secondary-action" type="button" onClick={onDismiss}>
+          Entendi
         </button>
       </div>
     </section>

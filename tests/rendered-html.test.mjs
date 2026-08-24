@@ -172,6 +172,14 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /Limpar/);
   assert.match(appShell, /function getCardDateParts/);
   assert.match(appShell, /\.then\(\(registration\) => registration\.update\(\)\)/);
+  assert.match(appShell, /type ReleaseAnnouncement/);
+  assert.match(appShell, /const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:"/);
+  assert.match(appShell, /const currentRelease: ReleaseAnnouncement/);
+  assert.match(appShell, /function releaseAckStorageKey/);
+  assert.match(appShell, /function ReleaseAnnouncementCard/);
+  assert.match(appShell, /Novidade/);
+  assert.match(appShell, /Ver passo a passo/);
+  assert.match(appShell, /Entendi/);
   assert.match(appShell, /parts\?\.month !== filters\.month/);
   assert.match(appShell, /parts\?\.year !== filters\.year/);
   assert.doesNotMatch(appShell, /card\.date\.split\("-"\)/);
@@ -203,6 +211,10 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.history-month-title h3::before/);
   assert.match(css, /\.history-month-pill\.success/);
   assert.match(css, /\.history-card-date/);
+  assert.match(css, /\.release-announcement/);
+  assert.match(css, /\.release-highlights/);
+  assert.match(css, /\.release-steps/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.release-announcement\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\.history-card-row/);
   assert.match(css, /\.payment-actions/);
   assert.match(css, /\.payment-item\.is-pinned/);
