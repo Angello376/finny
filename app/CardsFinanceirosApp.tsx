@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   LogOut,
   Moon,
-  Pencil,
   PieChart,
   Plus,
   ReceiptText,
@@ -118,6 +117,8 @@ type DraftBackupStatus = "idle" | "pending" | "saved" | "restored";
 
 type BusyAction = "save" | "generate" | "export" | "copy" | "share" | null;
 
+type EditorStepId = "receipt" | "payments" | "review";
+
 type AppUser = {
   id: string;
   displayName: string;
@@ -172,6 +173,12 @@ const cardFormats: CardFormat[] = [
   { id: "square", label: "1080 x 1080", width: 1080, height: 1080 },
   { id: "story", label: "1080 x 1920", width: 1080, height: 1920 },
   { id: "landscape", label: "1920 x 1080", width: 1920, height: 1080 },
+];
+
+const editorSteps: { id: EditorStepId; label: string }[] = [
+  { id: "receipt", label: "Recebimento" },
+  { id: "payments", label: "Pagamentos" },
+  { id: "review", label: "Revisar" },
 ];
 
 const monthNames = [
@@ -458,7 +465,7 @@ function sortCardsByUpdatedAt(a: FinanceCard, b: FinanceCard) {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
-function validateCard(card: FinanceCard) {
+function validateReceiptStep(card: FinanceCard) {
   const errors: string[] = [];
 
   if (!card.type) errors.push("Selecione o tipo do recebimento.");
@@ -467,6 +474,12 @@ function validateCard(card: FinanceCard) {
   }
   if (!card.date) errors.push("Informe a data do recebimento.");
   if (card.amountCents <= 0) errors.push("Informe o valor recebido.");
+
+  return errors;
+}
+
+function validatePaymentStep(card: FinanceCard) {
+  const errors: string[] = [];
 
   card.payments.forEach((payment, index) => {
     if (!isMeaningfulPayment(payment)) return;
@@ -478,6 +491,28 @@ function validateCard(card: FinanceCard) {
   });
 
   return errors;
+}
+
+function validateCard(card: FinanceCard) {
+  return [...validateReceiptStep(card), ...validatePaymentStep(card)];
+}
+
+function getCardStatus(card: FinanceCard) {
+  const metrics = getMetrics(card);
+
+  if (metrics.balanceCents < 0) {
+    return { label: "Saldo negativo", tone: "danger" };
+  }
+
+  if (card.images.length) {
+    return { label: "Gerado", tone: "success" };
+  }
+
+  if (validateCard(card).length === 0) {
+    return { label: "Pronto", tone: "neutral" };
+  }
+
+  return { label: "Rascunho", tone: "warning" };
 }
 
 function filterCards(cards: FinanceCard[], filters: FilterState) {
@@ -1030,6 +1065,7 @@ export default function CardsFinanceirosApp({
   const [cards, setCards] = useState<FinanceCard[]>([]);
   const [draft, setDraft] = useState<FinanceCard | null>(null);
   const [screen, setScreen] = useState<"home" | "editor" | "admin">("home");
+  const [editorStep, setEditorStep] = useState<EditorStepId>("receipt");
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [selectedFormat, setSelectedFormat] = useState<CardFormatId>("square");
   const [selectedImageId, setSelectedImageId] = useState<string>("");
@@ -1085,6 +1121,7 @@ export default function CardsFinanceirosApp({
           setIsDraftDirty(true);
           setDraftBackupStatus("restored");
           setNotice("Rascunho recuperado neste aparelho.");
+          setEditorStep("receipt");
           setScreen("editor");
         }
       })
@@ -1203,6 +1240,7 @@ export default function CardsFinanceirosApp({
     setDraftBackupStatus("idle");
     setMessages([]);
     setNotice("");
+    setEditorStep("receipt");
     setScreen("editor");
   }
 
@@ -1314,7 +1352,77 @@ export default function CardsFinanceirosApp({
     setDraftBackupStatus(localDraft ? "restored" : "idle");
     setMessages([]);
     setNotice(localDraft ? "Rascunho recuperado neste aparelho." : "");
+    setEditorStep(nextDraft.images.length ? "review" : "receipt");
     setScreen("editor");
+  }
+
+  function duplicateCard(source: FinanceCard) {
+    const now = new Date().toISOString();
+    const nextDraft: FinanceCard = {
+      ...cloneCard(source),
+      id: createId(),
+      createdAt: now,
+      updatedAt: now,
+      date: "",
+      payments: source.payments.map((payment) => ({ ...payment, id: createId() })),
+      images: [],
+    };
+
+    setDraft(nextDraft);
+    setSelectedImageId("");
+    setIsDraftDirty(true);
+    setDraftBackupStatus("pending");
+    setMessages([]);
+    setNotice("Cópia criada. Revise data e valor antes de salvar.");
+    setEditorStep("receipt");
+    setScreen("editor");
+  }
+
+  function goToPaymentsStep() {
+    if (!draft) return;
+
+    const validationErrors = validateReceiptStep(draft);
+    if (validationErrors.length) {
+      setMessages(validationErrors);
+      return;
+    }
+
+    setMessages([]);
+    setEditorStep("payments");
+  }
+
+  function goToReviewStep() {
+    if (!draft) return;
+
+    const validationErrors = validatePaymentStep(draft);
+    if (validationErrors.length) {
+      setMessages(validationErrors);
+      return;
+    }
+
+    setMessages([]);
+    setEditorStep("review");
+  }
+
+  function selectEditorStep(step: EditorStepId) {
+    if (!draft || step === "receipt") {
+      setMessages([]);
+      setEditorStep(step);
+      return;
+    }
+
+    const validationErrors =
+      step === "payments"
+        ? validateReceiptStep(draft)
+        : validateCard(draft);
+
+    if (validationErrors.length) {
+      setMessages(validationErrors);
+      return;
+    }
+
+    setMessages([]);
+    setEditorStep(step);
   }
 
   function patchDraft(patch: Partial<FinanceCard>) {
@@ -1687,6 +1795,7 @@ export default function CardsFinanceirosApp({
             groupedHistory={groupedHistory}
             statistics={statistics}
             onFilterChange={setFilters}
+            onDuplicateCard={duplicateCard}
             onNewCard={openNewCard}
             onOpenCard={openExistingCard}
           />
@@ -1709,12 +1818,14 @@ export default function CardsFinanceirosApp({
             />
           </section>
         ) : draft ? (
-          <section className="editor-shell">
+          <section className={`editor-shell is-step-${editorStep}`}>
             <div className="editor-main">
               <button className="ghost-action back-action" type="button" onClick={() => setScreen("home")}>
                 <ArrowLeft size={18} aria-hidden="true" />
                 Histórico
               </button>
+
+              <EditorStepper currentStep={editorStep} onStepChange={selectEditorStep} />
 
               <SummaryPanel card={draft} metrics={metrics} hasUserInput={hasUserInput} />
 
@@ -1736,6 +1847,7 @@ export default function CardsFinanceirosApp({
                 </div>
               ) : null}
 
+              {editorStep === "receipt" ? (
               <section className="form-section" aria-labelledby="receipt-form-title">
                 <div className="section-heading">
                   <div>
@@ -1822,8 +1934,16 @@ export default function CardsFinanceirosApp({
                     />
                   </label>
                 </div>
-              </section>
 
+                <div className="step-footer">
+                  <button className="primary-action" type="button" onClick={goToPaymentsStep}>
+                    Continuar
+                  </button>
+                </div>
+              </section>
+              ) : null}
+
+              {editorStep === "payments" ? (
               <section className="form-section" aria-labelledby="payments-title">
                 <div className="section-heading">
                   <div>
@@ -1916,9 +2036,31 @@ export default function CardsFinanceirosApp({
                     text="Use o botão acima para criar os pagamentos deste recebimento."
                   />
                 )}
+
+                <div className="step-footer">
+                  <button className="ghost-action" type="button" onClick={() => setEditorStep("receipt")}>
+                    Voltar
+                  </button>
+                  <button className="primary-action" type="button" onClick={goToReviewStep}>
+                    Revisar card
+                  </button>
+                </div>
               </section>
+              ) : null}
+
+              {editorStep === "review" ? (
+                <ReviewStep
+                  card={draft}
+                  metrics={metrics}
+                  onEditPayments={() => setEditorStep("payments")}
+                  onEditReceipt={() => setEditorStep("receipt")}
+                  onSave={saveChanges}
+                  isBusy={isBusy}
+                />
+              ) : null}
             </div>
 
+            {editorStep === "review" ? (
             <aside className="preview-rail">
               <section className="preview-panel" aria-labelledby="preview-title">
                 <div className="section-heading">
@@ -2014,13 +2156,20 @@ export default function CardsFinanceirosApp({
                 </div>
 
                 {cards.some((card) => card.id === draft.id) ? (
-                  <button className="delete-card" type="button" onClick={deleteCurrentCard}>
-                    <Trash2 size={17} aria-hidden="true" />
-                    Excluir card
-                  </button>
+                  <div className="saved-card-actions">
+                    <button className="tool-action" type="button" onClick={() => duplicateCard(draft)}>
+                      <Copy size={17} aria-hidden="true" />
+                      Duplicar card
+                    </button>
+                    <button className="delete-card" type="button" onClick={deleteCurrentCard}>
+                      <Trash2 size={17} aria-hidden="true" />
+                      Excluir card
+                    </button>
+                  </div>
                 ) : null}
               </section>
             </aside>
+            ) : null}
           </section>
         ) : null}
       </section>
@@ -2043,6 +2192,105 @@ export default function CardsFinanceirosApp({
   );
 }
 
+function EditorStepper({
+  currentStep,
+  onStepChange,
+}: {
+  currentStep: EditorStepId;
+  onStepChange: (step: EditorStepId) => void;
+}) {
+  const currentIndex = editorSteps.findIndex((step) => step.id === currentStep);
+
+  return (
+    <nav className="editor-stepper" aria-label="Etapas do card">
+      {editorSteps.map((step, index) => {
+        const isActive = step.id === currentStep;
+        const isDone = index < currentIndex;
+
+        return (
+          <button
+            className={`stepper-item${isActive ? " is-active" : ""}${
+              isDone ? " is-done" : ""
+            }`}
+            key={step.id}
+            type="button"
+            onClick={() => onStepChange(step.id)}
+            aria-current={isActive ? "step" : undefined}
+          >
+            <span>{isDone ? <CheckCircle2 size={15} aria-hidden="true" /> : index + 1}</span>
+            {step.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function ReviewStep({
+  card,
+  metrics,
+  isBusy,
+  onEditPayments,
+  onEditReceipt,
+  onSave,
+}: {
+  card: FinanceCard;
+  metrics: Metrics;
+  isBusy: boolean;
+  onEditPayments: () => void;
+  onEditReceipt: () => void;
+  onSave: () => void;
+}) {
+  const status = getCardStatus(card);
+
+  return (
+    <section className="form-section review-step" aria-labelledby="review-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Revisão</span>
+          <h2 id="review-title">Tudo pronto?</h2>
+        </div>
+        <span className={`status-pill ${status.tone}`}>{status.label}</span>
+      </div>
+
+      <div className="review-grid">
+        <article>
+          <span>Recebimento</span>
+          <strong>{getReceiptLabel(card)}</strong>
+          <small>
+            {formatDateBR(card.date) || "Sem data"} · {formatCurrency(card.amountCents)}
+          </small>
+          <button className="ghost-action" type="button" onClick={onEditReceipt}>
+            Editar recebimento
+          </button>
+        </article>
+
+        <article>
+          <span>Pagamentos</span>
+          <strong>{metrics.paymentCount} pagamento(s)</strong>
+          <small>
+            {formatCurrency(metrics.totalPaidCents)} comprometidos · saldo{" "}
+            {formatCurrency(metrics.balanceCents)}
+          </small>
+          <button className="ghost-action" type="button" onClick={onEditPayments}>
+            Editar pagamentos
+          </button>
+        </article>
+      </div>
+
+      <div className="step-footer">
+        <button className="ghost-action" type="button" onClick={onEditPayments}>
+          Voltar
+        </button>
+        <button className="secondary-action" type="button" onClick={onSave} disabled={isBusy}>
+          <Save size={17} aria-hidden="true" />
+          Salvar
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function HomeScreen({
   cards,
   filteredCards,
@@ -2050,6 +2298,7 @@ function HomeScreen({
   groupedHistory,
   statistics,
   onFilterChange,
+  onDuplicateCard,
   onNewCard,
   onOpenCard,
 }: {
@@ -2059,9 +2308,14 @@ function HomeScreen({
   groupedHistory: Record<string, FinanceCard[]>;
   statistics: ReturnType<typeof buildStatistics>;
   onFilterChange: (filters: FilterState) => void;
+  onDuplicateCard: (card: FinanceCard) => void;
   onNewCard: () => void;
   onOpenCard: (card: FinanceCard) => void;
 }) {
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const patchFilters = (patch: Partial<FilterState>) =>
+    onFilterChange({ ...filters, ...patch });
+
   return (
     <section className="home-grid">
       <div className="home-primary">
@@ -2072,17 +2326,45 @@ function HomeScreen({
           Novo Card
         </button>
 
+        <label className="quick-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            value={filters.text}
+            onChange={(event) => patchFilters({ text: event.target.value })}
+            placeholder="Buscar cards"
+          />
+        </label>
+
         <HistoryPanel
           groupedHistory={groupedHistory}
           totalCards={cards.length}
           filteredCount={filteredCards.length}
+          onDuplicateCard={onDuplicateCard}
           onOpenCard={onOpenCard}
         />
       </div>
 
       <aside className="home-side">
-        <FiltersPanel filters={filters} onFilterChange={onFilterChange} />
-        <StatisticsPanel statistics={statistics} />
+        <details className="home-disclosure" defaultOpen={hasActiveFilters}>
+          <summary>
+            <span>
+              <SlidersHorizontal size={17} aria-hidden="true" />
+              Filtros
+            </span>
+            {hasActiveFilters ? <i>ativos</i> : null}
+          </summary>
+          <FiltersPanel filters={filters} onFilterChange={onFilterChange} />
+        </details>
+
+        <details className="home-disclosure">
+          <summary>
+            <span>
+              <PieChart size={17} aria-hidden="true" />
+              Resumo do mês
+            </span>
+          </summary>
+          <StatisticsPanel statistics={statistics} />
+        </details>
       </aside>
     </section>
   );
@@ -2318,11 +2600,13 @@ function HistoryPanel({
   groupedHistory,
   totalCards,
   filteredCount,
+  onDuplicateCard,
   onOpenCard,
 }: {
   groupedHistory: Record<string, FinanceCard[]>;
   totalCards: number;
   filteredCount: number;
+  onDuplicateCard: (card: FinanceCard) => void;
   onOpenCard: (card: FinanceCard) => void;
 }) {
   const groups = Object.entries(groupedHistory);
@@ -2345,19 +2629,35 @@ function HistoryPanel({
               <div className="history-list">
                 {groupCards.map((card) => {
                   const metrics = getMetrics(card);
+                  const status = getCardStatus(card);
                   return (
-                    <button key={card.id} type="button" onClick={() => onOpenCard(card)}>
-                      <span className="status-dot">
-                        <CheckCircle2 size={16} aria-hidden="true" />
-                      </span>
-                      <span>
-                        <strong>{getReceiptLabel(card)}</strong>
-                        <small>
-                          {formatDateBR(card.date)} · saldo {formatCurrency(metrics.balanceCents)}
-                        </small>
-                      </span>
-                      <Pencil size={15} aria-hidden="true" />
-                    </button>
+                    <div className="history-card-row" key={card.id}>
+                      <button
+                        className="history-card-open"
+                        type="button"
+                        onClick={() => onOpenCard(card)}
+                      >
+                        <span className="status-dot">
+                          <CheckCircle2 size={16} aria-hidden="true" />
+                        </span>
+                        <span>
+                          <strong>{getReceiptLabel(card)}</strong>
+                          <small>
+                            {formatDateBR(card.date)} · saldo {formatCurrency(metrics.balanceCents)}
+                          </small>
+                        </span>
+                        <span className={`status-pill ${status.tone}`}>{status.label}</span>
+                      </button>
+                      <button
+                        className="icon-button history-duplicate"
+                        type="button"
+                        onClick={() => onDuplicateCard(card)}
+                        aria-label={`Duplicar ${getReceiptLabel(card)}`}
+                        title="Duplicar card"
+                      >
+                        <Copy size={15} aria-hidden="true" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

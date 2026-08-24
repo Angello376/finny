@@ -131,3 +131,29 @@ test("keeps the authenticated app usable on mobile screens", async () => {
   assert.match(mobileCss, /\.access-row\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.summary-panel\s*\{[\s\S]*grid-template-columns:\s*1fr/);
 });
+
+test("keeps the usability test flow focused and guided", async () => {
+  const [appShell, css] = await Promise.all([
+    readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appShell, /type EditorStepId = "receipt" \| "payments" \| "review"/);
+  assert.match(appShell, /const editorSteps/);
+  assert.match(appShell, /function EditorStepper/);
+  assert.match(appShell, /function ReviewStep/);
+  assert.match(appShell, /function duplicateCard/);
+  assert.match(appShell, /Continuar/);
+  assert.match(appShell, /Revisar card/);
+  assert.match(appShell, /Duplicar card/);
+  assert.match(appShell, /className="quick-search"/);
+  assert.match(appShell, /className="home-disclosure"/);
+  assert.match(appShell, /className=\{`status-pill/);
+  assert.match(css, /\.editor-stepper/);
+  assert.match(css, /\.stepper-item\.is-active/);
+  assert.match(css, /\.review-grid/);
+  assert.match(css, /\.quick-search/);
+  assert.match(css, /\.home-disclosure/);
+  assert.match(css, /\.status-pill\.success/);
+  assert.match(css, /\.history-card-row/);
+});
