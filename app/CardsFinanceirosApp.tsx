@@ -1108,6 +1108,22 @@ function isRunningAsInstalledApp() {
   );
 }
 
+function getReleaseGreeting(user: AppUser) {
+  const displayName = user.displayName.trim();
+  const email = user.email.trim().toLowerCase();
+  const emailPrefix = email.split("@")[0] ?? "";
+  const normalizedDisplayName = displayName.toLowerCase();
+  const hasRealName =
+    displayName.length > 0 &&
+    !displayName.includes("@") &&
+    normalizedDisplayName !== email &&
+    normalizedDisplayName !== emailPrefix;
+
+  return hasRealName
+    ? `Olá, ${displayName}. Antes de abrir o app, veja rapidinho o que mudou nesta versão.`
+    : "Olá! Antes de abrir o app, veja rapidinho o que mudou nesta versão.";
+}
+
 export default function CardsFinanceirosApp({
   accessToken,
   onSignOut,
@@ -2368,23 +2384,10 @@ function ReleaseAnnouncementGate({
     <section className="release-gate-panel" aria-labelledby="release-title" aria-live="polite">
       <div className="release-gate-hero">
         <header className="release-gate-header">
-          <span className="release-gate-logo">
-            <Image
-              alt=""
-              draggable={false}
-              height={192}
-              src="/assets/brand/finny-logo.png"
-              unoptimized
-              width={192}
-            />
-          </span>
           <div>
             <span className="eyebrow">Novidades</span>
             <h1 id="release-title">{release.title}</h1>
-            <p>
-              Olá, {user.displayName}. Antes de abrir o app, veja rapidinho o que
-              mudou nesta versão.
-            </p>
+            <p>{getReleaseGreeting(user)}</p>
           </div>
         </header>
 

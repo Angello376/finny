@@ -94,10 +94,7 @@ export async function requireSupabaseUser(request: Request) {
     user: {
       id: authUser.id,
       email,
-      displayName:
-        (authUser.user_metadata?.name as string | undefined) ??
-        email.split("@")[0] ??
-        email,
+      displayName: getSupabaseDisplayName(authUser.user_metadata, email),
       role: access.role === "admin" ? "admin" : "user",
       status: "active" as const,
     },
@@ -198,6 +195,44 @@ function getBearerToken(request: Request) {
 
   if (scheme.toLowerCase() !== "bearer" || !token) return null;
   return token;
+}
+
+function getSupabaseDisplayName(
+  userMetadata: Record<string, unknown> | null | undefined,
+  email: string,
+) {
+  const metadata = userMetadata ?? {};
+  const firstName = metadataText(metadata, "first_name");
+  const lastName = metadataText(metadata, "last_name");
+  const fullNameFromParts = [firstName, lastName].filter(Boolean).join(" ");
+  const emailPrefix = email.split("@")[0] ?? email;
+  const candidates = [
+    metadataText(metadata, "name"),
+    metadataText(metadata, "full_name"),
+    metadataText(metadata, "display_name"),
+    fullNameFromParts,
+  ];
+
+  return (
+    candidates.find((candidate) => isRealDisplayName(candidate, email, emailPrefix)) ??
+    emailPrefix
+  );
+}
+
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isRealDisplayName(candidate: string, email: string, emailPrefix: string) {
+  if (!candidate) return false;
+
+  const normalized = candidate.toLowerCase();
+  return (
+    !candidate.includes("@") &&
+    normalized !== email.toLowerCase() &&
+    normalized !== emailPrefix.toLowerCase()
+  );
 }
 
 async function migrateLegacyCards(

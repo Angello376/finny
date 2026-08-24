@@ -137,10 +137,11 @@ test("keeps the authenticated app usable on mobile screens", async () => {
 });
 
 test("keeps the usability test flow focused and guided", async () => {
-  const [appShell, css, cardStorage] = await Promise.all([
+  const [appShell, css, cardStorage, supabaseAuth] = await Promise.all([
     readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/api/cards/card-storage.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/supabase-auth.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(appShell, /type EditorStepId = "receipt" \| "payments" \| "review"/);
@@ -180,8 +181,11 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /releaseGateStatus !== "cleared"/);
   assert.match(appShell, /function ReleaseGateLoading/);
   assert.match(appShell, /function ReleaseAnnouncementGate/);
+  assert.match(appShell, /function getReleaseGreeting/);
   assert.match(appShell, /className=\{`release-gate/);
   assert.match(appShell, /\/assets\/brand\/finny-release-updates\.png/);
+  assert.doesNotMatch(appShell, /<header className="release-gate-header">[\s\S]*className="release-gate-logo"/);
+  assert.doesNotMatch(appShell, /Olá, \{user\.displayName\}/);
   assert.match(appShell, /title: "Atualização 1\.0"/);
   assert.match(appShell, /Novidades/);
   assert.match(appShell, /Card em 3 etapas/);
@@ -225,12 +229,13 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.release-gate/);
   assert.match(css, /\.release-gate-panel/);
   assert.match(css, /\.release-gate-hero/);
+  assert.match(css, /\.release-gate-header\s*\{[\s\S]*display:\s*block/);
   assert.match(css, /\.release-gate-art/);
   assert.match(css, /\.release-gate-actions/);
   assert.match(css, /\.release-highlights/);
   assert.match(css, /\.release-steps/);
   assert.doesNotMatch(css, /\.release-announcement/);
-  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.release-gate-header,[\s\S]*\.release-gate-loading,[\s\S]*\.release-gate-summary,[\s\S]*\.release-highlights\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.release-gate-loading,[\s\S]*\.release-gate-summary,[\s\S]*\.release-highlights\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\.history-card-row/);
   assert.match(css, /\.payment-actions/);
   assert.match(css, /\.payment-item\.is-pinned/);
@@ -238,5 +243,9 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(cardStorage, /pinned: boolean/);
   assert.match(cardStorage, /pinned: Boolean\(payment\.pinned\)/);
   assert.match(cardStorage, /parseJson<Payment\[\]>\(row\.paymentsJson, \[\]\)\.map\(normalizePayment\)/);
+  assert.match(supabaseAuth, /function getSupabaseDisplayName/);
+  assert.match(supabaseAuth, /metadataText\(metadata, "full_name"\)/);
+  assert.match(supabaseAuth, /metadataText\(metadata, "display_name"\)/);
+  assert.match(supabaseAuth, /function isRealDisplayName/);
   assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
 });

@@ -976,7 +976,10 @@ button:disabled {
   align-items: center;
 }
 
-.release-gate-header,
+.release-gate-header {
+  display: block;
+}
+
 .release-gate-loading {
   display: grid;
   grid-template-columns: 74px minmax(0, 1fr);
@@ -2793,7 +2796,6 @@ button:disabled {
     margin: -10px auto -4px;
   }
 
-  .release-gate-header,
   .release-gate-loading,
   .release-gate-summary,
   .release-highlights {
