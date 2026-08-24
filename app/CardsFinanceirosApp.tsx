@@ -1635,6 +1635,29 @@ export default function CardsFinanceirosApp({
         </button>
       </aside>
 
+      <nav className="mobile-bottom-nav" aria-label="Menu principal mobile">
+        <button
+          className={`mobile-nav-item${isAdminArea ? "" : " is-active"}`}
+          type="button"
+          onClick={openCardsHome}
+          aria-current={isAdminArea ? undefined : "page"}
+        >
+          <LayoutDashboard size={18} aria-hidden="true" />
+          <span>Cards</span>
+        </button>
+        {user.role === "admin" ? (
+          <button
+            className={`mobile-nav-item${isAdminArea ? " is-active" : ""}`}
+            type="button"
+            onClick={openAdminArea}
+            aria-current={isAdminArea ? "page" : undefined}
+          >
+            <ShieldCheck size={18} aria-hidden="true" />
+            <span>Admin</span>
+          </button>
+        ) : null}
+      </nav>
+
       <section className="workspace">
         <header className="workspace-header">
           <div>

@@ -113,3 +113,21 @@ test("keeps Finny PWA branding and removes obsolete starter assets", async () =>
     /favicon\.svg|window\.svg|file\.svg|globe\.svg|assets\/mascot|loading-character\.mp4/,
   );
 });
+
+test("keeps the authenticated app usable on mobile screens", async () => {
+  const [appShell, css] = await Promise.all([
+    readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const mobileCss = css.slice(css.indexOf("@media (max-width: 620px)"));
+
+  assert.match(appShell, /className="mobile-bottom-nav"/);
+  assert.match(appShell, /aria-label="Menu principal mobile"/);
+  assert.match(appShell, /className=\{`mobile-nav-item/);
+  assert.match(mobileCss, /\.mobile-bottom-nav\s*\{[\s\S]*position:\s*fixed/);
+  assert.match(mobileCss, /\.mobile-bottom-nav\s*\{[\s\S]*display:\s*flex/);
+  assert.match(mobileCss, /\.workspace\s*\{[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(mobileCss, /\.payment-item \.icon-button\s*\{[\s\S]*width:\s*100%/);
+  assert.match(mobileCss, /\.access-row\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.summary-panel\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+});

@@ -695,6 +695,39 @@ button:disabled {
   gap: 8px;
 }
 
+.mobile-bottom-nav {
+  display: none;
+}
+
+.mobile-nav-item {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 50px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.mobile-nav-item.is-active {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--text);
+}
+
 .menu-item,
 .theme-toggle {
   width: 100%;
@@ -2213,13 +2246,27 @@ button:disabled {
     width: min(116%, 430px);
   }
 
+  .finance-app {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+
+  .finance-app.has-ios-install-hint {
+    padding-bottom: calc(170px + env(safe-area-inset-bottom));
+  }
+
   .app-menu {
     position: sticky;
+    top: 0;
     z-index: 20;
     align-items: center;
     flex-direction: row;
     padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
       12px max(14px, env(safe-area-inset-left));
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+  }
+
+  .workspace {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
   }
 
   .brand-block {
@@ -2237,6 +2284,32 @@ button:disabled {
 
   .app-menu nav {
     display: none;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    z-index: 35;
+    display: flex;
+    gap: 8px;
+    max-width: 520px;
+    margin: 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(13, 24, 42, 0.94);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+    padding: 8px;
+    backdrop-filter: blur(22px);
+  }
+
+  [data-theme="light"] .mobile-bottom-nav {
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  .mobile-nav-item:active {
+    transform: scale(0.98);
   }
 
   .account-card {
@@ -2282,10 +2355,32 @@ button:disabled {
   .tool-action,
   .format-select {
     width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .editor-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .editor-actions > * {
+    flex: 1 1 100%;
+  }
+
+  .draft-indicator {
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
   }
 
   .new-card-hero {
     min-height: 126px;
+  }
+
+  .workspace-header {
+    gap: 14px;
+    margin-bottom: 16px;
   }
 
   .workspace-header h1 {
@@ -2305,7 +2400,59 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .payment-item .icon-button {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .card-preview-frame {
+    min-height: 260px;
+  }
+
+  .card-preview-frame img {
+    max-height: 60vh;
+  }
+
+  .access-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .access-actions {
+    justify-content: stretch;
+  }
+
+  .access-actions > * {
+    flex: 1 1 0;
+  }
+
+  .ios-install-card {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
   .monthly-chart {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .summary-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-index {
+    width: 100%;
+    min-height: 38px;
+    height: auto;
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+
+  .payment-item .icon-button {
+    grid-column: 1;
   }
 }
