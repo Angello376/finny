@@ -1,4 +1,5 @@
-const CACHE_NAME = "finny-pwa-v4";
+const CACHE_NAME = "finny-pwa-v5";
+const API_PREFIX = "/api/";
 const APP_SHELL = [
   "/offline.html",
   "/manifest.webmanifest",
@@ -33,31 +34,32 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
+  if (url.pathname.startsWith(API_PREFIX)) return;
+
   if (request.mode === "navigate") {
     event.respondWith(networkFirstNavigation(request));
     return;
   }
 
-  event.respondWith(staleWhileRevalidate(request));
+  event.respondWith(networkFirstAsset(request));
 });
 
 async function networkFirstNavigation(request) {
   try {
     return await fetch(request);
   } catch {
-    return caches.match("/offline.html");
+    return (await caches.match("/offline.html")) || Response.error();
   }
 }
 
-async function staleWhileRevalidate(request) {
+async function networkFirstAsset(request) {
   const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  const fetched = fetch(request)
-    .then((response) => {
-      if (response && response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => cached);
 
-  return cached || fetched;
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request)) || Response.error();
+  }
 }

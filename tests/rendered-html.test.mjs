@@ -107,7 +107,11 @@ test("keeps Finny PWA branding and removes obsolete starter assets", async () =>
   assert.match(manifest, /"name":\s*"Finny"/);
   assert.match(manifest, /"short_name":\s*"Finny"/);
   assert.match(offline, /<h1>Finny<\/h1>/);
-  assert.match(serviceWorker, /finny-pwa-v4/);
+  assert.match(serviceWorker, /finny-pwa-v5/);
+  assert.match(serviceWorker, /const API_PREFIX = "\/api\/";/);
+  assert.match(serviceWorker, /url\.pathname\.startsWith\(API_PREFIX\)\) return/);
+  assert.match(serviceWorker, /networkFirstAsset\(request\)/);
+  assert.doesNotMatch(serviceWorker, /staleWhileRevalidate/);
   assert.doesNotMatch(
     pwaSurface,
     /favicon\.svg|window\.svg|file\.svg|globe\.svg|assets\/mascot|loading-character\.mp4/,
@@ -167,6 +171,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /className="ghost-action filter-clear"/);
   assert.match(appShell, /Limpar/);
   assert.match(appShell, /function getCardDateParts/);
+  assert.match(appShell, /\.then\(\(registration\) => registration\.update\(\)\)/);
   assert.match(appShell, /parts\?\.month !== filters\.month/);
   assert.match(appShell, /parts\?\.year !== filters\.year/);
   assert.doesNotMatch(appShell, /card\.date\.split\("-"\)/);

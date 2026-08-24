@@ -1189,7 +1189,10 @@ export default function CardsFinanceirosApp({
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
 
     const registerServiceWorker = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((registration) => registration.update())
+        .catch(() => undefined);
     };
 
     if (document.readyState === "complete") {
