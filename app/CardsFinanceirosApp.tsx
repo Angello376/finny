@@ -133,6 +133,8 @@ type BusyAction = "save" | "generate" | "export" | "copy" | "share" | null;
 
 type EditorStepId = "receipt" | "payments" | "review";
 
+type ReleaseGateStatus = "checking" | "required" | "cleared";
+
 type AppUser = {
   id: string;
   displayName: string;
@@ -217,7 +219,7 @@ const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:";
 const DRAFT_SAVE_DELAY_MS = 450;
 
 const currentRelease: ReleaseAnnouncement = {
-  id: "2026-08-24-simplified-history",
+  id: "2026-08-24-release-gate",
   title: "Busca do histórico mais simples",
   summary:
     "Agora ficou mais facil encontrar seus cards: o filtro usa apenas mes e ano, com os meses mais destacados no historico.",
@@ -1129,7 +1131,8 @@ export default function CardsFinanceirosApp({
     useState<DraftBackupStatus>("idle");
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
-  const [showReleaseAnnouncement, setShowReleaseAnnouncement] = useState(false);
+  const [releaseGateStatus, setReleaseGateStatus] =
+    useState<ReleaseGateStatus>("checking");
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
@@ -1239,8 +1242,10 @@ export default function CardsFinanceirosApp({
   }, []);
 
   useEffect(() => {
-    setShowReleaseAnnouncement(
-      localStorage.getItem(releaseAckStorageKey(user.id)) !== "true",
+    setReleaseGateStatus(
+      localStorage.getItem(releaseAckStorageKey(user.id)) === "true"
+        ? "cleared"
+        : "required",
     );
   }, [user.id]);
 
@@ -1321,7 +1326,7 @@ export default function CardsFinanceirosApp({
 
   function dismissReleaseAnnouncement() {
     localStorage.setItem(releaseAckStorageKey(user.id), "true");
-    setShowReleaseAnnouncement(false);
+    setReleaseGateStatus("cleared");
   }
 
   async function saveAccessUser() {
@@ -1709,6 +1714,26 @@ export default function CardsFinanceirosApp({
   const isAdminArea = screen === "admin" && user.role === "admin";
   const isGeneratingCard = busyAction === "generate";
 
+  if (releaseGateStatus !== "cleared") {
+    return (
+      <main
+        className={`release-gate${isStandaloneApp ? " is-standalone" : ""}`}
+        data-theme={theme}
+      >
+        {releaseGateStatus === "checking" ? (
+          <ReleaseGateLoading />
+        ) : (
+          <ReleaseAnnouncementGate
+            release={currentRelease}
+            user={user}
+            onContinue={dismissReleaseAnnouncement}
+            onSignOut={onSignOut}
+          />
+        )}
+      </main>
+    );
+  }
+
   return (
     <main
       className={`finance-app${isStandaloneApp ? " is-standalone" : ""}${
@@ -1827,13 +1852,6 @@ export default function CardsFinanceirosApp({
             <CheckCircle2 size={18} aria-hidden="true" />
             {notice}
           </div>
-        ) : null}
-
-        {showReleaseAnnouncement ? (
-          <ReleaseAnnouncementCard
-            release={currentRelease}
-            onDismiss={dismissReleaseAnnouncement}
-          />
         ) : null}
 
         {screen === "home" ? (
@@ -2309,51 +2327,95 @@ function ReviewStep({
   );
 }
 
-function ReleaseAnnouncementCard({
+function ReleaseGateLoading() {
+  return (
+    <section className="release-gate-panel release-gate-loading" aria-live="polite">
+      <span className="release-gate-logo">
+        <Image
+          alt=""
+          draggable={false}
+          height={192}
+          src="/assets/brand/finny-logo.png"
+          unoptimized
+          width={192}
+        />
+      </span>
+      <div>
+        <span className="eyebrow">Finny</span>
+        <h1>Preparando novidades...</h1>
+        <p>Estamos conferindo se existe alguma atualização para você ver.</p>
+      </div>
+    </section>
+  );
+}
+
+function ReleaseAnnouncementGate({
   release,
-  onDismiss,
+  user,
+  onContinue,
+  onSignOut,
 }: {
   release: ReleaseAnnouncement;
-  onDismiss: () => void;
+  user: AppUser;
+  onContinue: () => void;
+  onSignOut: () => void;
 }) {
   const [showSteps, setShowSteps] = useState(false);
 
   return (
-    <section className="release-announcement" aria-labelledby="release-title" aria-live="polite">
-      <span className="release-announcement-icon">
-        <Info size={20} aria-hidden="true" />
-      </span>
+    <section className="release-gate-panel" aria-labelledby="release-title" aria-live="polite">
+      <header className="release-gate-header">
+        <span className="release-gate-logo">
+          <Image
+            alt=""
+            draggable={false}
+            height={192}
+            src="/assets/brand/finny-logo.png"
+            unoptimized
+            width={192}
+          />
+        </span>
+        <div>
+          <span className="eyebrow">Atualização do Finny</span>
+          <h1 id="release-title">{release.title}</h1>
+          <p>
+            Olá, {user.displayName}. Antes de abrir o app, veja rapidinho o que
+            mudou nesta versão.
+          </p>
+        </div>
+      </header>
 
-      <div className="release-announcement-content">
-        <span className="eyebrow">Novidade</span>
-        <h2 id="release-title">{release.title}</h2>
+      <div className="release-gate-summary">
+        <span>
+          <Info size={18} aria-hidden="true" />
+        </span>
         <p>{release.summary}</p>
-
-        <ul className="release-highlights" aria-label="Resumo do que mudou">
-          {release.highlights.map((highlight) => (
-            <li key={highlight}>
-              <CheckCircle2 size={15} aria-hidden="true" />
-              {highlight}
-            </li>
-          ))}
-        </ul>
-
-        {showSteps ? (
-          <div className="release-steps">
-            <h3>
-              <ListChecks size={16} aria-hidden="true" />
-              Passo a passo
-            </h3>
-            <ol>
-              {release.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          </div>
-        ) : null}
       </div>
 
-      <div className="release-announcement-actions">
+      <ul className="release-highlights" aria-label="Resumo do que mudou">
+        {release.highlights.map((highlight) => (
+          <li key={highlight}>
+            <CheckCircle2 size={15} aria-hidden="true" />
+            {highlight}
+          </li>
+        ))}
+      </ul>
+
+      {showSteps ? (
+        <div className="release-steps">
+          <h2>
+            <ListChecks size={16} aria-hidden="true" />
+            Passo a passo
+          </h2>
+          <ol>
+            {release.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+
+      <div className="release-gate-actions">
         <button
           className="ghost-action"
           type="button"
@@ -2362,10 +2424,15 @@ function ReleaseAnnouncementCard({
           <ListChecks size={16} aria-hidden="true" />
           {showSteps ? "Ocultar passo a passo" : "Ver passo a passo"}
         </button>
-        <button className="secondary-action" type="button" onClick={onDismiss}>
-          Entendi
+        <button className="secondary-action" type="button" onClick={onContinue}>
+          Entendi, abrir o app
         </button>
       </div>
+
+      <button className="release-gate-signout" type="button" onClick={onSignOut}>
+        Trocar conta
+        <LogOut size={15} aria-hidden="true" />
+      </button>
     </section>
   );
 }
