@@ -167,7 +167,10 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.quick-search/);
   assert.match(css, /\.home-disclosure/);
   assert.match(css, /\.status-pill\.success/);
+  assert.match(css, /\.history-group\s*\{/);
+  assert.match(css, /border-left:\s*4px solid rgba\(34, 197, 94, 0\.82\)/);
   assert.match(css, /\.history-month-header/);
+  assert.match(css, /\.history-month-title h3::before/);
   assert.match(css, /\.history-month-pill\.success/);
   assert.match(css, /\.history-card-row/);
   assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
