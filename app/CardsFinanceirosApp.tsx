@@ -109,6 +109,16 @@ type Metrics = {
   committedPercent: number;
 };
 
+type HistoryMonthGroup = {
+  key: string;
+  label: string;
+  cards: FinanceCard[];
+  receivedCents: number;
+  paidCents: number;
+  balanceCents: number;
+  paymentCount: number;
+};
+
 type DraftBackupStatus = "idle" | "pending" | "saved" | "restored";
 
 type BusyAction = "save" | "generate" | "export" | "copy" | "share" | null;
@@ -254,6 +264,14 @@ function formatCompactCurrency(cents: number) {
     style: "currency",
     currency: "BRL",
     maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function formatHistorySummaryCurrency(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
   }).format(cents / 100);
 }
 
@@ -537,17 +555,39 @@ function filterCards(cards: FinanceCard[], filters: FilterState) {
 }
 
 function groupCardsByMonth(cards: FinanceCard[]) {
-  return cards.reduce<Record<string, FinanceCard[]>>((groups, card) => {
+  const groups = new Map<string, HistoryMonthGroup>();
+
+  cards.forEach((card) => {
     const [year, month] = card.date.split("-");
     const date = month && year ? new Date(Number(year), Number(month) - 1) : null;
+    const key = date ? `${year}-${month}` : "sem-data";
     const label = date
       ? `${monthNames[date.getMonth()]} ${date.getFullYear()}`
       : "Sem data";
+    const metrics = getMetrics(card);
+    const current = groups.get(key) ?? {
+      key,
+      label,
+      cards: [],
+      receivedCents: 0,
+      paidCents: 0,
+      balanceCents: 0,
+      paymentCount: 0,
+    };
 
-    groups[label] ??= [];
-    groups[label].push(card);
-    return groups;
-  }, {});
+    current.cards.push(card);
+    current.receivedCents += card.amountCents;
+    current.paidCents += metrics.totalPaidCents;
+    current.balanceCents += metrics.balanceCents;
+    current.paymentCount += metrics.paymentCount;
+    groups.set(key, current);
+  });
+
+  return [...groups.values()].sort((a, b) => {
+    if (a.key === "sem-data") return 1;
+    if (b.key === "sem-data") return -1;
+    return b.key.localeCompare(a.key);
+  });
 }
 
 function getPeriodCards(cards: FinanceCard[], filters: FilterState) {
@@ -2499,13 +2539,13 @@ function HistoryPanel({
   onDuplicateCard,
   onOpenCard,
 }: {
-  groupedHistory: Record<string, FinanceCard[]>;
+  groupedHistory: HistoryMonthGroup[];
   totalCards: number;
   filteredCount: number;
   onDuplicateCard: (card: FinanceCard) => void;
   onOpenCard: (card: FinanceCard) => void;
 }) {
-  const groups = Object.entries(groupedHistory);
+  const groups = groupedHistory;
 
   return (
     <section className="history-panel" aria-labelledby="history-title">
@@ -2519,11 +2559,38 @@ function HistoryPanel({
 
       {groups.length ? (
         <div className="history-groups">
-          {groups.map(([group, groupCards]) => (
-            <div className="history-group" key={group}>
-              <h3>{group}</h3>
+          {groups.map((group) => (
+            <div className="history-group" key={group.key}>
+              <div className="history-month-header">
+                <div className="history-month-title">
+                  <h3>{group.label}</h3>
+                  <p>
+                    {group.cards.length} {group.cards.length === 1 ? "card" : "cards"} ·{" "}
+                    {group.paymentCount}{" "}
+                    {group.paymentCount === 1 ? "pagamento" : "pagamentos"}
+                  </p>
+                </div>
+                <div className="history-month-summary" aria-label={`Resumo de ${group.label}`}>
+                  <span
+                    className={`history-month-pill ${
+                      group.balanceCents < 0 ? "danger" : "success"
+                    }`}
+                  >
+                    <small>{group.balanceCents < 0 ? "Faltou" : "Sobrou"}</small>
+                    <strong>{formatHistorySummaryCurrency(group.balanceCents)}</strong>
+                  </span>
+                  <span className="history-month-pill">
+                    <small>Recebido</small>
+                    <strong>{formatHistorySummaryCurrency(group.receivedCents)}</strong>
+                  </span>
+                  <span className="history-month-pill">
+                    <small>Pago</small>
+                    <strong>{formatHistorySummaryCurrency(group.paidCents)}</strong>
+                  </span>
+                </div>
+              </div>
               <div className="history-list">
-                {groupCards.map((card) => {
+                {group.cards.map((card) => {
                   const metrics = getMetrics(card);
                   const status = getCardStatus(card);
                   return (

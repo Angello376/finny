@@ -1256,10 +1256,73 @@ button:disabled {
   animation-delay: 90ms;
 }
 
-.history-group h3 {
+.history-month-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 10px;
+}
+
+.history-month-title h3 {
+  margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.history-month-title p {
+  margin: 4px 0 0;
+  color: var(--subtle);
+  font-size: 12px;
+}
+
+.history-month-summary {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.history-month-pill {
+  display: grid;
+  min-width: 92px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.34);
+  padding: 7px 9px;
+  text-align: right;
+}
+
+.history-month-pill small {
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-month-pill strong {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.history-month-pill.success strong {
+  color: var(--green);
+}
+
+.history-month-pill.danger strong {
+  color: #fecaca;
+}
+
+[data-theme="light"] .history-month-pill {
+  background: rgba(248, 250, 252, 0.78);
+}
+
+[data-theme="light"] .history-month-pill.danger strong {
+  color: #991b1b;
 }
 
 .history-card-row {
@@ -2591,6 +2654,20 @@ button:disabled {
   .payment-item .icon-button {
     width: 100%;
     justify-self: stretch;
+  }
+
+  .history-month-header {
+    display: grid;
+  }
+
+  .history-month-summary {
+    justify-content: stretch;
+  }
+
+  .history-month-pill {
+    flex: 1 1 94px;
+    min-width: 0;
+    text-align: left;
   }
 
   .history-card-open {
