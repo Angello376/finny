@@ -224,16 +224,18 @@ const currentRelease: ReleaseAnnouncement | null = {
   id: "1.1",
   title: "Atualização 1.1",
   summary:
-    "Agora o Finny usa seu primeiro nome para deixar o app mais pessoal.",
+    "Deixamos o fluxo mais simples para criar, encontrar e duplicar seus cards.",
   highlights: [
-    "Primeiro nome obrigatório.",
-    "Cadastro novo já pede nome.",
-    "Contas antigas atualizam uma vez.",
+    "Card em 3 etapas.",
+    "Histórico mensal mais claro.",
+    "Filtro por mês e ano.",
+    "Pagamentos fixados.",
   ],
   steps: [
-    "Se a tela pedir seu nome, informe apenas seu primeiro nome.",
-    "Clique em Salvar e abrir Finny.",
-    "Depois disso, essa etapa some e o app abre normalmente nas próximas vezes.",
+    "Clique em Novo Card e preencha recebimento, pagamentos e revisão.",
+    "No histórico, veja separado o que entrou, o que foi pago e o que sobrou em cada mês.",
+    "Use o filtro escolhendo apenas mês e ano para achar seus cards mais rápido.",
+    "Fixe pagamentos recorrentes para eles continuarem quando duplicar um card.",
   ],
 };
 

@@ -200,10 +200,12 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.doesNotMatch(appShell, /Olá, \{user\.displayName\}/);
   assert.match(appShell, /title: "Atualização 1\.1"/);
   assert.match(appShell, /Novidades/);
-  assert.match(appShell, /Primeiro nome obrigatório/);
-  assert.match(appShell, /Cadastro novo já pede nome/);
-  assert.match(appShell, /Contas antigas atualizam uma vez/);
-  assert.match(appShell, /essa etapa some e o app abre normalmente/);
+  assert.match(appShell, /Card em 3 etapas/);
+  assert.match(appShell, /Histórico mensal mais claro/);
+  assert.match(appShell, /Filtro por mês e ano/);
+  assert.match(appShell, /Pagamentos fixados/);
+  assert.match(appShell, /Fixe pagamentos recorrentes/);
+  assert.doesNotMatch(appShell, /Primeiro nome obrigatório/);
   assert.match(appShell, /Ver passo a passo/);
   assert.match(appShell, /Entendi, abrir o app/);
   assert.doesNotMatch(appShell, /showReleaseAnnouncement/);
