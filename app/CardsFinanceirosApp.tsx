@@ -2591,7 +2591,6 @@ function HistoryPanel({
               </div>
               <div className="history-list">
                 {group.cards.map((card) => {
-                  const metrics = getMetrics(card);
                   const status = getCardStatus(card);
                   return (
                     <div className="history-card-row" key={card.id}>
@@ -2605,9 +2604,7 @@ function HistoryPanel({
                         </span>
                         <span>
                           <strong>{getReceiptLabel(card)}</strong>
-                          <small>
-                            {formatDateBR(card.date)} · saldo {formatCurrency(metrics.balanceCents)}
-                          </small>
+                          <small>{formatDateBR(card.date)}</small>
                         </span>
                         <span className={`status-pill ${status.tone}`}>{status.label}</span>
                       </button>

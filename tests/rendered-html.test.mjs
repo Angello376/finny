@@ -161,6 +161,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /Sobrou/);
   assert.match(appShell, /Recebido/);
   assert.match(appShell, /Pago/);
+  assert.doesNotMatch(appShell, /saldo \{formatCurrency\(metrics\.balanceCents\)\}/);
   assert.match(css, /\.editor-stepper/);
   assert.match(css, /\.stepper-item\.is-active/);
   assert.match(css, /\.review-grid/);
