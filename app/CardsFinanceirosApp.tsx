@@ -20,7 +20,6 @@ import {
   ReceiptText,
   RefreshCw,
   Save,
-  Search,
   Share2,
   ShieldCheck,
   SlidersHorizontal,
@@ -99,10 +98,6 @@ type FinanceCard = {
 type FilterState = {
   month: string;
   year: string;
-  type: string;
-  minValue: string;
-  maxValue: string;
-  text: string;
 };
 
 type Metrics = {
@@ -213,10 +208,6 @@ const DRAFT_SAVE_DELAY_MS = 450;
 const emptyFilters: FilterState = {
   month: "",
   year: "",
-  type: "",
-  minValue: "",
-  maxValue: "",
-  text: "",
 };
 
 const blankPayment = (): Payment => ({
@@ -524,35 +515,11 @@ function getCardStatus(card: FinanceCard) {
 }
 
 function filterCards(cards: FinanceCard[], filters: FilterState) {
-  const minValue = parseCurrencyToCents(filters.minValue);
-  const maxValue = parseCurrencyToCents(filters.maxValue);
-  const searchText = filters.text.trim().toLocaleLowerCase("pt-BR");
-
   return cards.filter((card) => {
     const [year, month] = card.date.split("-");
 
     if (filters.month && month !== filters.month) return false;
     if (filters.year && year !== filters.year) return false;
-    if (filters.type && card.type !== filters.type) return false;
-    if (minValue && card.amountCents < minValue) return false;
-    if (maxValue && card.amountCents > maxValue) return false;
-
-    if (searchText) {
-      const searchable = [
-        getReceiptLabel(card),
-        card.description,
-        card.date,
-        ...card.payments.flatMap((payment) => [
-          payment.name,
-          payment.category,
-          payment.note,
-        ]),
-      ]
-        .join(" ")
-        .toLocaleLowerCase("pt-BR");
-
-      if (!searchable.includes(searchText)) return false;
-    }
 
     return true;
   });
@@ -2279,7 +2246,7 @@ function HomeScreen({
   cards: FinanceCard[];
   filteredCards: FinanceCard[];
   filters: FilterState;
-  groupedHistory: Record<string, FinanceCard[]>;
+  groupedHistory: HistoryMonthGroup[];
   statistics: ReturnType<typeof buildStatistics>;
   onFilterChange: (filters: FilterState) => void;
   onDuplicateCard: (card: FinanceCard) => void;
@@ -2287,8 +2254,6 @@ function HomeScreen({
   onOpenCard: (card: FinanceCard) => void;
 }) {
   const hasActiveFilters = Object.values(filters).some(Boolean);
-  const patchFilters = (patch: Partial<FilterState>) =>
-    onFilterChange({ ...filters, ...patch });
 
   return (
     <section className="home-grid">
@@ -2299,15 +2264,6 @@ function HomeScreen({
           </span>
           Novo Card
         </button>
-
-        <label className="quick-search">
-          <Search size={17} aria-hidden="true" />
-          <input
-            value={filters.text}
-            onChange={(event) => patchFilters({ text: event.target.value })}
-            placeholder="Buscar cards"
-          />
-        </label>
 
         <HistoryPanel
           groupedHistory={groupedHistory}
@@ -2691,25 +2647,13 @@ function FiltersPanel({
     <section className="filters-panel" aria-labelledby="filters-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Busca</span>
-          <h2 id="filters-title">Filtros</h2>
+          <span className="eyebrow">Período</span>
+          <h2 id="filters-title">Mês e ano</h2>
         </div>
         <SlidersHorizontal size={18} aria-hidden="true" />
       </div>
 
       <div className="filters-grid">
-        <label className="field">
-          <span>Texto</span>
-          <div className="input-with-icon">
-            <Search size={16} aria-hidden="true" />
-            <input
-              value={filters.text}
-              onChange={(event) => patchFilters({ text: event.target.value })}
-              placeholder="Pesquisar"
-            />
-          </div>
-        </label>
-
         <label className="field">
           <span>Mês</span>
           <select
@@ -2732,42 +2676,6 @@ function FiltersPanel({
             value={filters.year}
             onChange={(event) => patchFilters({ year: event.target.value.replace(/\D/g, "").slice(0, 4) })}
             placeholder="Todos"
-          />
-        </label>
-
-        <label className="field">
-          <span>Tipo</span>
-          <select value={filters.type} onChange={(event) => patchFilters({ type: event.target.value })}>
-            <option value="">Todos</option>
-            {receiptTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Valor mínimo</span>
-          <input
-            inputMode="numeric"
-            value={filters.minValue}
-            onChange={(event) =>
-              patchFilters({ minValue: formatCurrencyInput(parseCurrencyToCents(event.target.value)) })
-            }
-            placeholder="Sem mínimo"
-          />
-        </label>
-
-        <label className="field">
-          <span>Valor máximo</span>
-          <input
-            inputMode="numeric"
-            value={filters.maxValue}
-            onChange={(event) =>
-              patchFilters({ maxValue: formatCurrencyInput(parseCurrencyToCents(event.target.value)) })
-            }
-            placeholder="Sem máximo"
           />
         </label>
       </div>

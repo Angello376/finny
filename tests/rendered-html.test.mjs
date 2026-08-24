@@ -161,7 +161,11 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /className=\{`icon-button pin-toggle \$\{payment\.pinned \? "is-pinned" : ""\}`\}/);
   assert.match(appShell, /aria-pressed=\{payment\.pinned\}/);
   assert.match(appShell, /Fixar para duplicar junto/);
-  assert.match(appShell, /className="quick-search"/);
+  assert.match(appShell, /type FilterState = \{\s*month: string;\s*year: string;\s*\}/);
+  assert.match(appShell, /Mês e ano/);
+  assert.doesNotMatch(appShell, /className="quick-search"/);
+  assert.doesNotMatch(appShell, /filters\.(text|type|minValue|maxValue)/);
+  assert.doesNotMatch(appShell, /Buscar cards|Valor mínimo|Valor máximo|Sem mínimo|Sem máximo/);
   assert.match(appShell, /className="home-disclosure"/);
   assert.match(appShell, /className=\{`status-pill/);
   assert.match(appShell, /type HistoryMonthGroup/);
@@ -175,7 +179,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.editor-stepper/);
   assert.match(css, /\.stepper-item\.is-active/);
   assert.match(css, /\.review-grid/);
-  assert.match(css, /\.quick-search/);
+  assert.doesNotMatch(css, /\.quick-search|\.input-with-icon/);
   assert.match(css, /\.home-disclosure/);
   assert.match(css, /\.status-pill\.success/);
   assert.match(css, /\.history-group\s*\{/);

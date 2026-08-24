@@ -974,44 +974,6 @@ button:disabled {
   color: #0d182a;
 }
 
-.quick-search {
-  position: relative;
-  display: block;
-}
-
-.quick-search svg {
-  position: absolute;
-  top: 50%;
-  left: 15px;
-  color: var(--subtle);
-  transform: translateY(-50%);
-}
-
-.quick-search input {
-  width: 100%;
-  min-height: 52px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--field);
-  color: var(--text);
-  outline: 0;
-  padding: 0 16px 0 44px;
-  font-size: 16px;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    background 160ms ease;
-}
-
-.quick-search input::placeholder {
-  color: var(--subtle);
-}
-
-.quick-search input:focus {
-  border-color: rgba(34, 197, 94, 0.58);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
-}
-
 .home-disclosure {
   display: grid;
   gap: 12px;
@@ -1556,22 +1518,6 @@ button:disabled {
 .field textarea:focus {
   border-color: rgba(34, 197, 94, 0.58);
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
-}
-
-.input-with-icon {
-  position: relative;
-}
-
-.input-with-icon svg {
-  position: absolute;
-  top: 50%;
-  left: 13px;
-  color: var(--subtle);
-  transform: translateY(-50%);
-}
-
-.input-with-icon input {
-  padding-left: 38px;
 }
 
 .filters-grid {
