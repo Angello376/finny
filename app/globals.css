@@ -589,8 +589,8 @@ button:disabled {
 .account-card span,
 .metric-tile span,
 .metric-tile strong,
-.stat-item span,
-.stat-item strong {
+.analysis-metric span,
+.analysis-metric strong {
   display: block;
 }
 
@@ -774,8 +774,7 @@ button:disabled {
 
 .workspace-header h1,
 .section-heading h2,
-.history-group h3,
-.chart-block h3 {
+.history-group h3 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -1299,7 +1298,7 @@ button:disabled {
 
 .history-panel,
 .filters-panel,
-.stats-panel,
+.analysis-panel,
 .admin-panel,
 .form-section,
 .preview-panel,
@@ -1314,7 +1313,7 @@ button:disabled {
 
 .history-panel,
 .filters-panel,
-.stats-panel,
+.analysis-panel,
 .admin-panel,
 .form-section,
 .preview-panel {
@@ -1461,7 +1460,8 @@ button:disabled {
 .history-list,
 .payments-list,
 .filters-grid,
-.stats-grid,
+.analysis-metrics,
+.analysis-list,
 .preview-actions {
   display: grid;
   gap: 12px;
@@ -1805,141 +1805,131 @@ button:disabled {
   white-space: nowrap;
 }
 
-.stats-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.stat-item {
-  min-height: 86px;
+.analysis-hero {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.46);
-  padding: 13px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.14), transparent 52%),
+    rgba(15, 23, 42, 0.42);
+  padding: 14px;
 }
 
-[data-theme="light"] .stat-item {
+[data-theme="light"] .analysis-hero,
+[data-theme="light"] .analysis-metric,
+[data-theme="light"] .analysis-list li {
   background: rgba(248, 250, 252, 0.84);
 }
 
-.stat-item span {
-  min-height: 33px;
-  color: var(--subtle);
-  font-size: 12px;
-  line-height: 1.35;
+.analysis-hero.success {
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
-.stat-item strong {
+.analysis-hero.warning {
+  border-color: rgba(255, 193, 7, 0.34);
+}
+
+.analysis-hero.danger {
+  border-color: rgba(239, 68, 68, 0.34);
+}
+
+.analysis-icon,
+.analysis-list li > span {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.16);
+  color: var(--blue);
+}
+
+.analysis-hero.success .analysis-icon,
+.analysis-list li.success > span {
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--green);
+}
+
+.analysis-hero.warning .analysis-icon,
+.analysis-list li.warning > span {
+  background: rgba(255, 193, 7, 0.16);
+  color: var(--yellow);
+}
+
+.analysis-hero.danger .analysis-icon,
+.analysis-list li.danger > span {
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--red);
+}
+
+.analysis-hero small,
+.analysis-metric span {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analysis-hero h3 {
+  margin: 3px 0 5px;
   color: var(--text);
   font-size: 18px;
   line-height: 1.2;
 }
 
-.chart-block {
-  margin-top: 18px;
-}
-
-.chart-block h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+.analysis-hero p,
+.analysis-list p {
+  margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
-.monthly-chart {
-  display: grid;
-  min-height: 176px;
-  grid-template-columns: repeat(6, minmax(38px, 1fr));
-  gap: 8px;
-  align-items: end;
+.analysis-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
 }
 
-.month-column {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.bars {
-  display: flex;
-  height: 132px;
-  align-items: end;
-  justify-content: center;
-  gap: 5px;
+.analysis-metric {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.4);
-  padding: 9px 7px;
+  background: rgba(15, 23, 42, 0.36);
+  padding: 11px;
 }
 
-[data-theme="light"] .bars {
-  background: rgba(248, 250, 252, 0.84);
-}
-
-.bars span {
-  width: 12px;
-  min-height: 8px;
-  border-radius: 8px 8px 2px 2px;
-}
-
-.bars .received {
-  background: var(--green);
-}
-
-.bars .paid {
-  background: var(--red);
-}
-
-.month-column small {
-  overflow: hidden;
-  color: var(--subtle);
-  font-size: 11px;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.category-chart {
-  display: grid;
-  gap: 10px;
-}
-
-.category-row {
-  display: grid;
-  grid-template-columns: 98px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.category-row div {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: rgba(148, 163, 184, 0.18);
-}
-
-.category-row i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--green), var(--blue));
-}
-
-.category-row strong {
+.analysis-metric strong {
   color: var(--text);
+  font-size: 15px;
+  line-height: 1.2;
 }
 
-.empty-chart {
-  margin: 0;
-  border: 1px dashed var(--line-strong);
-  border-radius: 8px;
-  padding: 16px;
-  color: var(--subtle);
-  text-align: center;
+.analysis-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
 }
+
+.analysis-list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.34);
+  padding: 11px;
+}
+
+.analysis-list strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 13px;
+}
+
 
 .editor-shell {
   grid-template-columns: minmax(0, 1fr) 420px;
@@ -2615,7 +2605,7 @@ button:disabled {
   .admin-page,
   .history-panel,
   .filters-panel,
-  .stats-panel,
+  .analysis-panel,
   .admin-panel,
   .form-section,
   .preview-panel,
@@ -2824,7 +2814,7 @@ button:disabled {
   .form-grid,
   .payment-fields,
   .filters-grid,
-  .stats-grid,
+  .analysis-metrics,
   .review-grid {
     grid-template-columns: 1fr;
   }
@@ -3027,10 +3017,6 @@ button:disabled {
     font-size: 16px;
   }
 
-  .category-row {
-    grid-template-columns: 1fr;
-  }
-
   .payment-actions {
     width: 100%;
   }
@@ -3095,9 +3081,6 @@ button:disabled {
     bottom: calc(92px + env(safe-area-inset-bottom));
   }
 
-  .monthly-chart {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 420px) {

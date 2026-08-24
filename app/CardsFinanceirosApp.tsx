@@ -15,7 +15,6 @@ import {
   ListChecks,
   LogOut,
   Moon,
-  PieChart,
   Pin,
   PinOff,
   Plus,
@@ -107,6 +106,26 @@ type Metrics = {
   balanceCents: number;
   paymentCount: number;
   committedPercent: number;
+};
+
+type AnalysisTone = "success" | "warning" | "danger" | "info";
+
+type FinnyAnalysisInsight = {
+  title: string;
+  text: string;
+  tone: AnalysisTone;
+};
+
+type FinnyAnalysis = {
+  periodLabel: string;
+  receivedCents: number;
+  paidCents: number;
+  balanceCents: number;
+  committedPercent: number;
+  paymentCount: number;
+  mainInsight: FinnyAnalysisInsight;
+  insights: FinnyAnalysisInsight[];
+  topCategory: { category: PaymentCategory; total: number } | null;
 };
 
 type HistoryMonthGroup = {
@@ -283,16 +302,6 @@ function formatCurrency(cents: number) {
     style: "currency",
     currency: "BRL",
     maximumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
-function formatCompactCurrency(cents: number) {
-  if (!cents) return "Sem dados";
-
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
   }).format(cents / 100);
 }
 
@@ -633,7 +642,7 @@ function getPeriodCards(cards: FinanceCard[], filters: FilterState) {
   });
 }
 
-function buildStatistics(cards: FinanceCard[], filters: FilterState) {
+function buildFinnyAnalysis(cards: FinanceCard[], filters: FilterState): FinnyAnalysis {
   const periodCards = getPeriodCards(cards, filters);
   const periodPayments = periodCards.flatMap((card) =>
     card.payments.filter(isMeaningfulPayment),
@@ -644,39 +653,166 @@ function buildStatistics(cards: FinanceCard[], filters: FilterState) {
   const sortedPayments = [...periodPayments].sort(
     (a, b) => b.amountCents - a.amountCents,
   );
+  const categoryTotals = buildCategoryTotals(periodPayments);
+  const pinnedPayments = periodPayments.filter((payment) => payment.pinned);
+  const committedPercent =
+    receivedCents > 0 ? Math.round((paidCents / receivedCents) * 100) : 0;
+  const largestPayment = sortedPayments[0] ?? null;
+  const topCategory = categoryTotals[0] ?? null;
+  const mainInsight = getMainFinnyInsight({
+    balanceCents,
+    committedPercent,
+    paidCents,
+    receivedCents,
+  });
 
   return {
+    periodLabel: getAnalysisPeriodLabel(filters),
     receivedCents,
     paidCents,
     balanceCents,
+    committedPercent,
     paymentCount: periodPayments.length,
-    largestPayment: sortedPayments[0],
-    smallestPayment: sortedPayments[sortedPayments.length - 1],
-    monthlyEvolution: buildMonthlyEvolution(cards),
-    categoryTotals: buildCategoryTotals(periodPayments),
+    mainInsight,
+    insights: buildFinnyInsights({
+      committedPercent,
+      largestPayment,
+      paymentCount: periodPayments.length,
+      pinnedCount: pinnedPayments.length,
+      receivedCents,
+      topCategory,
+    }),
+    topCategory,
   };
 }
 
-function buildMonthlyEvolution(cards: FinanceCard[]) {
-  const groups = new Map<string, { label: string; received: number; paid: number }>();
+function getAnalysisPeriodLabel(filters: FilterState) {
+  const today = new Date();
+  const month = filters.month || String(today.getMonth() + 1).padStart(2, "0");
+  const year = filters.year || String(today.getFullYear());
+  const monthName = monthNames[Number(month) - 1] ?? "Periodo";
 
-  cards.forEach((card) => {
-    const parts = getCardDateParts(card.date);
-    if (!parts) return;
+  return `${monthName} ${year}`;
+}
 
-    const key = `${parts.year}-${parts.month}`;
-    const label = `${monthNames[Number(parts.month) - 1].slice(0, 3)} ${parts.year.slice(2)}`;
-    const metrics = getMetrics(card);
-    const current = groups.get(key) ?? { label, received: 0, paid: 0 };
-    current.received += card.amountCents;
-    current.paid += metrics.totalPaidCents;
-    groups.set(key, current);
-  });
+function getMainFinnyInsight({
+  balanceCents,
+  committedPercent,
+  paidCents,
+  receivedCents,
+}: {
+  balanceCents: number;
+  committedPercent: number;
+  paidCents: number;
+  receivedCents: number;
+}): FinnyAnalysisInsight {
+  if (receivedCents <= 0) {
+    return {
+      title: "Sem recebimento no período",
+      text: "Crie um card com data e valor para o Finny analisar seus gastos.",
+      tone: "info",
+    };
+  }
 
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6)
-    .map(([, value]) => value);
+  if (balanceCents < 0) {
+    return {
+      title: "Atenção ao saldo negativo",
+      text: `Os pagamentos passaram do recebimento em ${formatCurrency(Math.abs(balanceCents))}. Revise valores antes de fechar o card.`,
+      tone: "danger",
+    };
+  }
+
+  if (paidCents <= 0) {
+    return {
+      title: "Recebimento ainda livre",
+      text: "Nenhum pagamento foi lançado nesse período. Adicione as contas conforme elas aparecerem.",
+      tone: "success",
+    };
+  }
+
+  if (committedPercent > 80) {
+    return {
+      title: "Recebimento muito comprometido",
+      text: `Você já usou ${committedPercent}% do valor recebido. Priorize contas essenciais e evite novos compromissos.`,
+      tone: "warning",
+    };
+  }
+
+  if (committedPercent > 50) {
+    return {
+      title: "Uso sob controle, mas acompanhe",
+      text: `Você usou ${committedPercent}% do recebimento e ainda tem ${formatCurrency(balanceCents)} livres.`,
+      tone: "info",
+    };
+  }
+
+  return {
+    title: "Boa folga no período",
+    text: `Você manteve ${formatCurrency(balanceCents)} disponíveis. Vale separar parte disso para reserva ou objetivo.`,
+    tone: "success",
+  };
+}
+
+function buildFinnyInsights({
+  committedPercent,
+  largestPayment,
+  paymentCount,
+  pinnedCount,
+  receivedCents,
+  topCategory,
+}: {
+  committedPercent: number;
+  largestPayment: Payment | null;
+  paymentCount: number;
+  pinnedCount: number;
+  receivedCents: number;
+  topCategory: { category: PaymentCategory; total: number } | null;
+}) {
+  const insights: FinnyAnalysisInsight[] = [];
+
+  if (largestPayment && receivedCents > 0) {
+    const largestPercent = Math.round((largestPayment.amountCents / receivedCents) * 100);
+
+    if (largestPercent >= 30) {
+      insights.push({
+        title: "Pagamento de maior impacto",
+        text: `${largestPayment.name} representa ${largestPercent}% do recebimento. Vale acompanhar esse valor de perto.`,
+        tone: "warning",
+      });
+    }
+  }
+
+  if (topCategory) {
+    insights.push({
+      title: "Categoria que mais puxou",
+      text: `${topCategory.category} concentrou ${formatCurrency(topCategory.total)} dos pagamentos do período.`,
+      tone: committedPercent > 80 ? "warning" : "info",
+    });
+  }
+
+  if (pinnedCount > 0) {
+    insights.push({
+      title: "Recorrentes preparados",
+      text: `${pinnedCount} pagamento${pinnedCount > 1 ? "s" : ""} fixado${pinnedCount > 1 ? "s" : ""} vai continuar ao duplicar um card.`,
+      tone: "success",
+    });
+  } else if (paymentCount > 0) {
+    insights.push({
+      title: "Facilite o próximo mês",
+      text: "Fixe contas recorrentes para elas irem junto quando você duplicar este card.",
+      tone: "info",
+    });
+  }
+
+  if (!insights.length) {
+    insights.push({
+      title: "Comece pelo básico",
+      text: "Adicione recebimento, data e pagamentos para receber uma análise mais completa.",
+      tone: "info",
+    });
+  }
+
+  return insights.slice(0, 3);
 }
 
 function buildCategoryTotals(payments: Payment[]) {
@@ -1312,7 +1448,10 @@ export default function CardsFinanceirosApp({
 
   const filteredCards = useMemo(() => filterCards(cards, filters), [cards, filters]);
   const groupedHistory = useMemo(() => groupCardsByMonth(filteredCards), [filteredCards]);
-  const statistics = useMemo(() => buildStatistics(cards, filters), [cards, filters]);
+  const finnyAnalysis = useMemo(
+    () => buildFinnyAnalysis(cards, filters),
+    [cards, filters],
+  );
   const metrics = useMemo(() => (draft ? getMetrics(draft) : getMetrics(blankCard())), [draft]);
   const currentFormat = cardFormats.find((format) => format.id === selectedFormat) ?? cardFormats[0];
   const hasUserInput =
@@ -1887,7 +2026,7 @@ export default function CardsFinanceirosApp({
             filteredCards={filteredCards}
             filters={filters}
             groupedHistory={groupedHistory}
-            statistics={statistics}
+            finnyAnalysis={finnyAnalysis}
             onFilterChange={setFilters}
             onDuplicateCard={duplicateCard}
             onNewCard={openNewCard}
@@ -2467,20 +2606,20 @@ function ReleaseAnnouncementGate({
 
 function HomeScreen({
   cards,
+  finnyAnalysis,
   filteredCards,
   filters,
   groupedHistory,
-  statistics,
   onFilterChange,
   onDuplicateCard,
   onNewCard,
   onOpenCard,
 }: {
   cards: FinanceCard[];
+  finnyAnalysis: FinnyAnalysis;
   filteredCards: FinanceCard[];
   filters: FilterState;
   groupedHistory: HistoryMonthGroup[];
-  statistics: ReturnType<typeof buildStatistics>;
   onFilterChange: (filters: FilterState) => void;
   onDuplicateCard: (card: FinanceCard) => void;
   onNewCard: () => void;
@@ -2522,11 +2661,11 @@ function HomeScreen({
         <details className="home-disclosure">
           <summary>
             <span>
-              <PieChart size={17} aria-hidden="true" />
-              Resumo do mês
+              <Info size={17} aria-hidden="true" />
+              Análise Finny
             </span>
           </summary>
-          <StatisticsPanel statistics={statistics} />
+          <FinnyAnalysisPanel analysis={finnyAnalysis} />
         </details>
       </aside>
     </section>
@@ -2923,104 +3062,71 @@ function FiltersPanel({
   );
 }
 
-function StatisticsPanel({
-  statistics,
-}: {
-  statistics: ReturnType<typeof buildStatistics>;
-}) {
-  const maxMonthly = Math.max(
-    1,
-    ...statistics.monthlyEvolution.flatMap((item) => [item.received, item.paid]),
-  );
-  const maxCategory = Math.max(1, ...statistics.categoryTotals.map((item) => item.total));
-
+function FinnyAnalysisPanel({ analysis }: { analysis: FinnyAnalysis }) {
   return (
-    <section className="stats-panel" aria-labelledby="stats-title">
+    <section className="analysis-panel" aria-labelledby="analysis-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Estatísticas</span>
-          <h2 id="stats-title">Resumo do mês</h2>
+          <span className="eyebrow">Análise</span>
+          <h2 id="analysis-title">Análise Finny</h2>
         </div>
-        <PieChart size={18} aria-hidden="true" />
+        <Info size={18} aria-hidden="true" />
       </div>
 
-      <div className="stats-grid">
-        <StatItem label="Total recebido no mês" value={formatCompactCurrency(statistics.receivedCents)} />
-        <StatItem label="Total pago" value={formatCompactCurrency(statistics.paidCents)} />
-        <StatItem label="Saldo acumulado" value={formatCompactCurrency(statistics.balanceCents)} />
-        <StatItem label="Quantidade de pagamentos" value={statistics.paymentCount ? String(statistics.paymentCount) : "Sem dados"} />
-        <StatItem
-          label="Maior pagamento"
-          value={statistics.largestPayment ? formatCompactCurrency(statistics.largestPayment.amountCents) : "Sem dados"}
+      <div className={`analysis-hero ${analysis.mainInsight.tone}`}>
+        <span className="analysis-icon">
+          {analysisIcon(analysis.mainInsight.tone)}
+        </span>
+        <div>
+          <small>{analysis.periodLabel}</small>
+          <h3>{analysis.mainInsight.title}</h3>
+          <p>{analysis.mainInsight.text}</p>
+        </div>
+      </div>
+
+      <div className="analysis-metrics">
+        <AnalysisMetric label="Recebido" value={formatCurrency(analysis.receivedCents)} />
+        <AnalysisMetric label="Pago" value={formatCurrency(analysis.paidCents)} />
+        <AnalysisMetric label="Sobra" value={formatCurrency(analysis.balanceCents)} />
+        <AnalysisMetric
+          label="Uso"
+          value={
+            analysis.receivedCents > 0
+              ? `${analysis.committedPercent}%`
+              : "Sem dados"
+          }
         />
-        <StatItem
-          label="Menor pagamento"
-          value={statistics.smallestPayment ? formatCompactCurrency(statistics.smallestPayment.amountCents) : "Sem dados"}
-        />
       </div>
 
-      <div className="chart-block">
-        <h3>
-          <BarChart3 size={16} aria-hidden="true" />
-          Evolução mensal
-        </h3>
-        {statistics.monthlyEvolution.length ? (
-          <div className="monthly-chart">
-            {statistics.monthlyEvolution.map((item) => (
-              <div className="month-column" key={item.label}>
-                <div className="bars">
-                  <span
-                    className="received"
-                    style={{ height: `${Math.max(8, (item.received / maxMonthly) * 100)}%` }}
-                    title={`Recebido ${formatCurrency(item.received)}`}
-                  />
-                  <span
-                    className="paid"
-                    style={{ height: `${Math.max(8, (item.paid / maxMonthly) * 100)}%` }}
-                    title={`Pago ${formatCurrency(item.paid)}`}
-                  />
-                </div>
-                <small>{item.label}</small>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-chart">Sem dados para gráfico.</p>
-        )}
-      </div>
-
-      <div className="chart-block">
-        <h3>
-          <PieChart size={16} aria-hidden="true" />
-          Por categoria
-        </h3>
-        {statistics.categoryTotals.length ? (
-          <div className="category-chart">
-            {statistics.categoryTotals.map((item) => (
-              <div className="category-row" key={item.category}>
-                <span>{item.category}</span>
-                <div>
-                  <i style={{ width: `${Math.max(8, (item.total / maxCategory) * 100)}%` }} />
-                </div>
-                <strong>{formatCompactCurrency(item.total)}</strong>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-chart">Sem pagamentos categorizados.</p>
-        )}
-      </div>
+      <ul className="analysis-list" aria-label="Sugestões do Finny">
+        {analysis.insights.map((insight) => (
+          <li className={insight.tone} key={insight.title}>
+            <span>{analysisIcon(insight.tone)}</span>
+            <div>
+              <strong>{insight.title}</strong>
+              <p>{insight.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
+function AnalysisMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="stat-item">
+    <div className="analysis-metric">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
   );
+}
+
+function analysisIcon(tone: AnalysisTone) {
+  if (tone === "success") return <CheckCircle2 size={16} aria-hidden="true" />;
+  if (tone === "warning") return <AlertTriangle size={16} aria-hidden="true" />;
+  if (tone === "danger") return <AlertTriangle size={16} aria-hidden="true" />;
+  return <Info size={16} aria-hidden="true" />;
 }
 
 function EmptyState({

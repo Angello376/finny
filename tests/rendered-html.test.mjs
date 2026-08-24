@@ -216,6 +216,15 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.doesNotMatch(appShell, /filters\.(text|type|minValue|maxValue)/);
   assert.doesNotMatch(appShell, /Buscar cards|Valor mínimo|Valor máximo|Sem mínimo|Sem máximo/);
   assert.match(appShell, /className="home-disclosure"/);
+  assert.match(appShell, /type FinnyAnalysis/);
+  assert.match(appShell, /function buildFinnyAnalysis/);
+  assert.match(appShell, /function FinnyAnalysisPanel/);
+  assert.match(appShell, /Análise Finny/);
+  assert.match(appShell, /Recebimento muito comprometido/);
+  assert.match(appShell, /Pagamento de maior impacto/);
+  assert.match(appShell, /Categoria que mais puxou/);
+  assert.match(appShell, /Recorrentes preparados/);
+  assert.doesNotMatch(appShell, /function StatisticsPanel|Resumo do mês|Evolução mensal|Por categoria/);
   assert.match(appShell, /className=\{`status-pill/);
   assert.match(appShell, /type HistoryMonthGroup/);
   assert.match(appShell, /function formatHistorySummaryCurrency/);
@@ -231,6 +240,11 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.doesNotMatch(css, /\.quick-search|\.input-with-icon/);
   assert.match(css, /\.filter-toolbar/);
   assert.match(css, /\.filter-clear/);
+  assert.match(css, /\.analysis-panel/);
+  assert.match(css, /\.analysis-hero/);
+  assert.match(css, /\.analysis-metrics/);
+  assert.match(css, /\.analysis-list/);
+  assert.doesNotMatch(css, /\.stats-panel|\.stats-grid|\.stat-item|\.monthly-chart|\.category-chart/);
   assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.filter-toolbar\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\.home-disclosure/);
   assert.match(css, /\.status-pill\.success/);
