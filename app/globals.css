@@ -1419,9 +1419,29 @@ button:disabled {
 }
 
 .history-list small {
-  margin-top: 3px;
+  margin-top: 6px;
   color: var(--subtle);
   font-size: 12px;
+}
+
+.history-card-date {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #bfdbfe;
+  padding: 2px 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+[data-theme="light"] .history-card-date {
+  border-color: rgba(37, 99, 235, 0.22);
+  background: rgba(37, 99, 235, 0.09);
+  color: #1e3a8a;
 }
 
 .status-pill {

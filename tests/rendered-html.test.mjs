@@ -158,6 +158,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /type HistoryMonthGroup/);
   assert.match(appShell, /function formatHistorySummaryCurrency/);
   assert.match(appShell, /className="history-month-summary"/);
+  assert.match(appShell, /className="history-card-date"/);
   assert.match(appShell, /Sobrou/);
   assert.match(appShell, /Recebido/);
   assert.match(appShell, /Pago/);
@@ -173,6 +174,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.history-month-header/);
   assert.match(css, /\.history-month-title h3::before/);
   assert.match(css, /\.history-month-pill\.success/);
+  assert.match(css, /\.history-card-date/);
   assert.match(css, /\.history-card-row/);
   assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
 });

@@ -2604,7 +2604,7 @@ function HistoryPanel({
                         </span>
                         <span>
                           <strong>{getReceiptLabel(card)}</strong>
-                          <small>{formatDateBR(card.date)}</small>
+                          <small className="history-card-date">{formatDateBR(card.date)}</small>
                         </span>
                         <span className={`status-pill ${status.tone}`}>{status.label}</span>
                       </button>
