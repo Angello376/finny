@@ -1,8 +1,8 @@
-const CACHE_NAME = "cards-financeiros-pwa-v3";
+const CACHE_NAME = "finny-pwa-v4";
 const APP_SHELL = [
   "/offline.html",
   "/manifest.webmanifest",
-  "/favicon.svg",
+  "/favicon.png",
   "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

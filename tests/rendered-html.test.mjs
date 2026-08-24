@@ -3,15 +3,23 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("uses the real authenticated app shell instead of the starter preview", async () => {
-  const [page, layout, authShell] = await Promise.all([
+  const [page, layout, authShell, appShell, manifest] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AuthShell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /import AuthShell from "\.\/AuthShell"/);
   assert.match(page, /return <AuthShell \/>/);
-  assert.match(layout, /title:\s*"Cards Financeiros"/);
+  assert.match(layout, /title:\s*"Finny"/);
+  assert.match(layout, /applicationName:\s*"Finny"/);
+  assert.match(layout, /icon:\s*"\/favicon\.png"/);
+  assert.match(manifest, /"name":\s*"Finny"/);
+  assert.match(manifest, /"short_name":\s*"Finny"/);
+  assert.match(appShell, /<strong>Finny<\/strong>/);
+  assert.match(appShell, /src="\/assets\/brand\/finny-logo\.png"/);
   assert.match(authShell, /session && user/);
   assert.match(authShell, /<CardsFinanceirosApp/);
   assert.doesNotMatch(authShell, /FinnyMascot|LoginFinny|LOGIN_FINNY/);

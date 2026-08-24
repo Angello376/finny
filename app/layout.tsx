@@ -14,22 +14,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  applicationName: "Cards Financeiros",
-  title: "Cards Financeiros",
+  applicationName: "Finny",
+  title: "Finny",
   description:
-    "Gerador de cards financeiros com cálculos automáticos, histórico, estatísticas e exportação.",
+    "Finny ajuda a organizar recebimentos, pagamentos, histórico, estatísticas e cards financeiros.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Cards Financeiros",
+    title: "Finny",
   },
   formatDetection: {
     telephone: false,
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
     apple: "/icons/apple-touch-icon.png",
   },
 };

@@ -34,6 +34,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -1568,11 +1569,18 @@ export default function CardsFinanceirosApp({
       <aside className="app-menu">
         <div className="brand-block">
           <span className="brand-mark">
-            <BadgeDollarSign size={22} aria-hidden="true" />
+            <Image
+              alt=""
+              draggable={false}
+              height={192}
+              src="/assets/brand/finny-logo.png"
+              unoptimized
+              width={192}
+            />
           </span>
           <div>
-            <strong>Cards Financeiros</strong>
-            <span>controle e compartilhamento</span>
+            <strong>Finny</strong>
+            <span>controle financeiro</span>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
-{
-  "name": "Cards Financeiros",
-  "short_name": "Cards",
-  "description": "Gerador de cards financeiros com cálculos automáticos, histórico, estatísticas e exportação.",
+﻿{
+  "name": "Finny",
+  "short_name": "Finny",
+  "description": "Finny ajuda a organizar recebimentos, pagamentos, historico, estatisticas e cards financeiros.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -48,3 +48,4 @@
     }
   ]
 }
+
