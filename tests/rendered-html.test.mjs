@@ -181,6 +181,7 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /function ReleaseGateLoading/);
   assert.match(appShell, /function ReleaseAnnouncementGate/);
   assert.match(appShell, /className=\{`release-gate/);
+  assert.match(appShell, /\/assets\/brand\/finny-release-updates\.png/);
   assert.match(appShell, /title: "Atualização 1\.0"/);
   assert.match(appShell, /Novidades/);
   assert.match(appShell, /Card em 3 etapas/);
@@ -222,6 +223,8 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.history-card-date/);
   assert.match(css, /\.release-gate/);
   assert.match(css, /\.release-gate-panel/);
+  assert.match(css, /\.release-gate-hero/);
+  assert.match(css, /\.release-gate-art/);
   assert.match(css, /\.release-gate-actions/);
   assert.match(css, /\.release-highlights/);
   assert.match(css, /\.release-steps/);

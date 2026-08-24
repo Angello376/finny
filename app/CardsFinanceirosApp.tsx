@@ -2366,26 +2366,40 @@ function ReleaseAnnouncementGate({
 
   return (
     <section className="release-gate-panel" aria-labelledby="release-title" aria-live="polite">
-      <header className="release-gate-header">
-        <span className="release-gate-logo">
+      <div className="release-gate-hero">
+        <header className="release-gate-header">
+          <span className="release-gate-logo">
+            <Image
+              alt=""
+              draggable={false}
+              height={192}
+              src="/assets/brand/finny-logo.png"
+              unoptimized
+              width={192}
+            />
+          </span>
+          <div>
+            <span className="eyebrow">Novidades</span>
+            <h1 id="release-title">{release.title}</h1>
+            <p>
+              Olá, {user.displayName}. Antes de abrir o app, veja rapidinho o que
+              mudou nesta versão.
+            </p>
+          </div>
+        </header>
+
+        <div className="release-gate-art" aria-hidden="true">
           <Image
             alt=""
             draggable={false}
-            height={192}
-            src="/assets/brand/finny-logo.png"
+            height={1024}
+            priority
+            src="/assets/brand/finny-release-updates.png"
             unoptimized
-            width={192}
+            width={1536}
           />
-        </span>
-        <div>
-          <span className="eyebrow">Novidades</span>
-          <h1 id="release-title">{release.title}</h1>
-          <p>
-            Olá, {user.displayName}. Antes de abrir o app, veja rapidinho o que
-            mudou nesta versão.
-          </p>
         </div>
-      </header>
+      </div>
 
       <div className="release-gate-summary">
         <span>
