@@ -1003,8 +1003,8 @@ button:disabled {
 .release-gate h1 {
   margin: 3px 0 8px;
   color: var(--text);
-  font-size: clamp(27px, 5vw, 44px);
-  line-height: 1.02;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.08;
 }
 
 .release-gate p {
@@ -1042,7 +1042,7 @@ button:disabled {
 
 .release-highlights {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;

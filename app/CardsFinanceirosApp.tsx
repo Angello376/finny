@@ -219,19 +219,21 @@ const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:";
 const DRAFT_SAVE_DELAY_MS = 450;
 
 const currentRelease: ReleaseAnnouncement = {
-  id: "2026-08-24-release-gate",
-  title: "Busca do histórico mais simples",
+  id: "1.0",
+  title: "Atualização 1.0",
   summary:
-    "Agora ficou mais facil encontrar seus cards: o filtro usa apenas mes e ano, com os meses mais destacados no historico.",
+    "Melhoramos a criação dos cards, o histórico mensal e a busca por período.",
   highlights: [
-    "Filtro limpo com somente mes e ano.",
-    "Resumo mensal separado por periodo.",
-    "Pagamentos fixados continuam ao duplicar um card.",
+    "Card em 3 etapas.",
+    "Resumo mensal no histórico.",
+    "Filtro por mês e ano.",
+    "Pagamentos fixados ao duplicar.",
   ],
   steps: [
-    "Abra Cards Financeiros e va ate a area de Filtros.",
-    "Escolha o mes e digite o ano que deseja consultar.",
-    "Toque no card encontrado para editar, duplicar, gerar ou compartilhar.",
+    "Clique em Novo Card e siga as etapas: recebimento, pagamentos e revisão.",
+    "No histórico, confira o total recebido, pago e o que sobrou em cada mês.",
+    "Use apenas mês e ano no filtro para encontrar os cards do período.",
+    "Fixe pagamentos recorrentes para eles irem junto ao duplicar um card.",
   ],
 };
 
@@ -2376,7 +2378,7 @@ function ReleaseAnnouncementGate({
           />
         </span>
         <div>
-          <span className="eyebrow">Atualização do Finny</span>
+          <span className="eyebrow">Novidades</span>
           <h1 id="release-title">{release.title}</h1>
           <p>
             Olá, {user.displayName}. Antes de abrir o app, veja rapidinho o que

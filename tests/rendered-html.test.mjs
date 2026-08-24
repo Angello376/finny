@@ -181,7 +181,11 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /function ReleaseGateLoading/);
   assert.match(appShell, /function ReleaseAnnouncementGate/);
   assert.match(appShell, /className=\{`release-gate/);
-  assert.match(appShell, /Atualização do Finny/);
+  assert.match(appShell, /title: "Atualização 1\.0"/);
+  assert.match(appShell, /Novidades/);
+  assert.match(appShell, /Card em 3 etapas/);
+  assert.match(appShell, /Resumo mensal no histórico/);
+  assert.match(appShell, /Pagamentos fixados ao duplicar/);
   assert.match(appShell, /Ver passo a passo/);
   assert.match(appShell, /Entendi, abrir o app/);
   assert.doesNotMatch(appShell, /showReleaseAnnouncement/);
