@@ -186,7 +186,8 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /Novidades/);
   assert.match(appShell, /Card em 3 etapas/);
   assert.match(appShell, /Resumo mensal no histórico/);
-  assert.match(appShell, /Pagamentos fixados ao duplicar/);
+  assert.match(appShell, /Pagamentos fixados/);
+  assert.match(appShell, /Ao duplicar um card, os pagamentos fixados são mantidos no novo card/);
   assert.match(appShell, /Ver passo a passo/);
   assert.match(appShell, /Entendi, abrir o app/);
   assert.doesNotMatch(appShell, /showReleaseAnnouncement/);

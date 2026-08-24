@@ -227,13 +227,13 @@ const currentRelease: ReleaseAnnouncement = {
     "Card em 3 etapas.",
     "Resumo mensal no histórico.",
     "Filtro por mês e ano.",
-    "Pagamentos fixados ao duplicar.",
+    "Pagamentos fixados.",
   ],
   steps: [
     "Clique em Novo Card e siga as etapas: recebimento, pagamentos e revisão.",
     "No histórico, confira o total recebido, pago e o que sobrou em cada mês.",
     "Use apenas mês e ano no filtro para encontrar os cards do período.",
-    "Fixe pagamentos recorrentes para eles irem junto ao duplicar um card.",
+    "Ao duplicar um card, os pagamentos fixados são mantidos no novo card.",
   ],
 };
 
