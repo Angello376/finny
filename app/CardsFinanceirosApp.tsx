@@ -281,17 +281,40 @@ function parseCurrencyToCents(value: string) {
   return Number.parseInt(onlyDigits, 10);
 }
 
+function getCardDateParts(dateValue: string) {
+  const value = dateValue.trim();
+  const isoMatch = value.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);
+  if (isoMatch) {
+    return {
+      year: isoMatch[1],
+      month: isoMatch[2].padStart(2, "0"),
+      day: isoMatch[3]?.padStart(2, "0") ?? "",
+    };
+  }
+
+  const brMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    return {
+      year: brMatch[3],
+      month: brMatch[2].padStart(2, "0"),
+      day: brMatch[1].padStart(2, "0"),
+    };
+  }
+
+  return null;
+}
+
 function formatDateBR(dateValue: string) {
   if (!dateValue) return "";
-  const [year, month, day] = dateValue.split("-");
-  if (!year || !month || !day) return dateValue;
-  return `${day}/${month}/${year}`;
+  const parts = getCardDateParts(dateValue);
+  if (!parts?.day) return dateValue;
+  return `${parts.day}/${parts.month}/${parts.year}`;
 }
 
 function formatShortDate(dateValue: string) {
   if (!dateValue) return "";
-  const [, month, day] = dateValue.split("-");
-  return day && month ? `${day}/${month}` : formatDateBR(dateValue);
+  const parts = getCardDateParts(dateValue);
+  return parts?.day ? `${parts.day}/${parts.month}` : formatDateBR(dateValue);
 }
 
 function getReceiptLabel(card: FinanceCard) {
@@ -516,10 +539,10 @@ function getCardStatus(card: FinanceCard) {
 
 function filterCards(cards: FinanceCard[], filters: FilterState) {
   return cards.filter((card) => {
-    const [year, month] = card.date.split("-");
+    const parts = getCardDateParts(card.date);
 
-    if (filters.month && month !== filters.month) return false;
-    if (filters.year && year !== filters.year) return false;
+    if (filters.month && parts?.month !== filters.month) return false;
+    if (filters.year && parts?.year !== filters.year) return false;
 
     return true;
   });
@@ -529,9 +552,9 @@ function groupCardsByMonth(cards: FinanceCard[]) {
   const groups = new Map<string, HistoryMonthGroup>();
 
   cards.forEach((card) => {
-    const [year, month] = card.date.split("-");
-    const date = month && year ? new Date(Number(year), Number(month) - 1) : null;
-    const key = date ? `${year}-${month}` : "sem-data";
+    const parts = getCardDateParts(card.date);
+    const date = parts ? new Date(Number(parts.year), Number(parts.month) - 1) : null;
+    const key = parts ? `${parts.year}-${parts.month}` : "sem-data";
     const label = date
       ? `${monthNames[date.getMonth()]} ${date.getFullYear()}`
       : "Sem data";
@@ -567,8 +590,8 @@ function getPeriodCards(cards: FinanceCard[], filters: FilterState) {
   const year = filters.year || String(today.getFullYear());
 
   return cards.filter((card) => {
-    const [cardYear, cardMonth] = card.date.split("-");
-    return cardYear === year && cardMonth === month;
+    const parts = getCardDateParts(card.date);
+    return parts?.year === year && parts.month === month;
   });
 }
 
@@ -600,11 +623,11 @@ function buildMonthlyEvolution(cards: FinanceCard[]) {
   const groups = new Map<string, { label: string; received: number; paid: number }>();
 
   cards.forEach((card) => {
-    const [year, month] = card.date.split("-");
-    if (!year || !month) return;
+    const parts = getCardDateParts(card.date);
+    if (!parts) return;
 
-    const key = `${year}-${month}`;
-    const label = `${monthNames[Number(month) - 1].slice(0, 3)} ${year.slice(2)}`;
+    const key = `${parts.year}-${parts.month}`;
+    const label = `${monthNames[Number(parts.month) - 1].slice(0, 3)} ${parts.year.slice(2)}`;
     const metrics = getMetrics(card);
     const current = groups.get(key) ?? { label, received: 0, paid: 0 };
     current.received += card.amountCents;

@@ -166,6 +166,10 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /className="filter-toolbar"/);
   assert.match(appShell, /className="ghost-action filter-clear"/);
   assert.match(appShell, /Limpar/);
+  assert.match(appShell, /function getCardDateParts/);
+  assert.match(appShell, /parts\?\.month !== filters\.month/);
+  assert.match(appShell, /parts\?\.year !== filters\.year/);
+  assert.doesNotMatch(appShell, /card\.date\.split\("-"\)/);
   assert.doesNotMatch(appShell, /className="quick-search"/);
   assert.doesNotMatch(appShell, /filters\.(text|type|minValue|maxValue)/);
   assert.doesNotMatch(appShell, /Buscar cards|Valor mínimo|Valor máximo|Sem mínimo|Sem máximo/);
