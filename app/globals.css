@@ -1971,6 +1971,19 @@ button:disabled {
   background: rgba(248, 250, 252, 0.84);
 }
 
+.payment-item.is-pinned {
+  border-color: rgba(255, 193, 7, 0.34);
+  background:
+    linear-gradient(90deg, rgba(255, 193, 7, 0.08), transparent 32%),
+    rgba(15, 23, 42, 0.5);
+}
+
+[data-theme="light"] .payment-item.is-pinned {
+  background:
+    linear-gradient(90deg, rgba(255, 193, 7, 0.1), transparent 34%),
+    rgba(255, 255, 255, 0.88);
+}
+
 .payment-index {
   display: flex;
   width: 42px;
@@ -2007,6 +2020,23 @@ button:disabled {
 .delete-card:hover {
   border-color: rgba(239, 68, 68, 0.34);
   background: rgba(239, 68, 68, 0.1);
+}
+
+.payment-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.pin-toggle.is-pinned {
+  border-color: rgba(255, 193, 7, 0.42);
+  background: rgba(255, 193, 7, 0.13);
+  color: var(--yellow);
+}
+
+.pin-toggle:hover {
+  border-color: rgba(255, 193, 7, 0.36);
+  background: rgba(255, 193, 7, 0.1);
+  color: var(--yellow);
 }
 
 .preview-rail {
@@ -2533,8 +2563,14 @@ button:disabled {
     grid-template-columns: 42px minmax(0, 1fr);
   }
 
-  .payment-item .icon-button {
+  .payment-actions {
     grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .payment-actions .icon-button {
+    grid-column: auto;
     justify-self: start;
   }
 
@@ -2716,8 +2752,13 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .payment-item .icon-button {
+  .payment-actions {
     width: 100%;
+  }
+
+  .payment-actions .icon-button {
+    flex: 1 1 120px;
+    width: auto;
     justify-self: stretch;
   }
 
@@ -2801,6 +2842,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .payment-actions {
+    grid-column: 1;
+  }
+
   .payment-index {
     width: 100%;
     min-height: 38px;
@@ -2809,7 +2854,8 @@ button:disabled {
     padding: 0 12px;
   }
 
-  .payment-item .icon-button {
-    grid-column: 1;
+  .payment-actions .icon-button {
+    flex-basis: 0;
+    grid-column: auto;
   }
 }

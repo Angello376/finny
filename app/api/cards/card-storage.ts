@@ -31,6 +31,7 @@ type Payment = {
   amountCents: number;
   category: PaymentCategory | "";
   note: string;
+  pinned: boolean;
 };
 
 type GeneratedImage = {
@@ -197,6 +198,7 @@ function normalizePayment(payment: Payment): Payment {
     amountCents: Number.isFinite(payment.amountCents) ? payment.amountCents : 0,
     category: payment.category || "",
     note: payment.note || "",
+    pinned: Boolean(payment.pinned),
   };
 }
 
@@ -256,7 +258,7 @@ function rowToCard(row: FinanceCardRow): FinanceCard {
     date: row.date,
     amountCents: row.amountCents,
     description: row.description,
-    payments: parseJson<Payment[]>(row.paymentsJson, []),
+    payments: parseJson<Payment[]>(row.paymentsJson, []).map(normalizePayment),
     images: parseJson<GeneratedImage[]>(row.imagesJson, []),
   };
 }

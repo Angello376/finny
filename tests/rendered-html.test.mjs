@@ -127,15 +127,16 @@ test("keeps the authenticated app usable on mobile screens", async () => {
   assert.match(mobileCss, /\.mobile-bottom-nav\s*\{[\s\S]*position:\s*fixed/);
   assert.match(mobileCss, /\.mobile-bottom-nav\s*\{[\s\S]*display:\s*flex/);
   assert.match(mobileCss, /\.workspace\s*\{[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(mobileCss, /\.payment-item \.icon-button\s*\{[\s\S]*width:\s*100%/);
+  assert.match(mobileCss, /\.payment-actions \.icon-button\s*\{[\s\S]*flex:\s*1 1 120px/);
   assert.match(mobileCss, /\.access-row\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.summary-panel\s*\{[\s\S]*grid-template-columns:\s*1fr/);
 });
 
 test("keeps the usability test flow focused and guided", async () => {
-  const [appShell, css] = await Promise.all([
+  const [appShell, css, cardStorage] = await Promise.all([
     readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/cards/card-storage.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(appShell, /type EditorStepId = "receipt" \| "payments" \| "review"/);
@@ -152,6 +153,14 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /Duplicar card/);
   assert.match(appShell, /Excluir card/);
   assert.doesNotMatch(appShell, /Exportar PNG|Exportar JPG|Copiar imagem/);
+  assert.match(appShell, /Pin,/);
+  assert.match(appShell, /PinOff,/);
+  assert.match(appShell, /pinned: false/);
+  assert.match(appShell, /payment\.pinned && isMeaningfulPayment\(payment\)/);
+  assert.match(appShell, /className=\{`payment-item \$\{payment\.pinned \? "is-pinned" : ""\}`\}/);
+  assert.match(appShell, /className=\{`icon-button pin-toggle \$\{payment\.pinned \? "is-pinned" : ""\}`\}/);
+  assert.match(appShell, /aria-pressed=\{payment\.pinned\}/);
+  assert.match(appShell, /Fixar para duplicar junto/);
   assert.match(appShell, /className="quick-search"/);
   assert.match(appShell, /className="home-disclosure"/);
   assert.match(appShell, /className=\{`status-pill/);
@@ -176,5 +185,11 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.history-month-pill\.success/);
   assert.match(css, /\.history-card-date/);
   assert.match(css, /\.history-card-row/);
+  assert.match(css, /\.payment-actions/);
+  assert.match(css, /\.payment-item\.is-pinned/);
+  assert.match(css, /\.pin-toggle\.is-pinned/);
+  assert.match(cardStorage, /pinned: boolean/);
+  assert.match(cardStorage, /pinned: Boolean\(payment\.pinned\)/);
+  assert.match(cardStorage, /parseJson<Payment\[\]>\(row\.paymentsJson, \[\]\)\.map\(normalizePayment\)/);
   assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
 });

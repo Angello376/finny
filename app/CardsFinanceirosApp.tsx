@@ -14,6 +14,8 @@ import {
   LogOut,
   Moon,
   PieChart,
+  Pin,
+  PinOff,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -68,6 +70,7 @@ type Payment = {
   amountCents: number;
   category: PaymentCategory | "";
   note: string;
+  pinned: boolean;
 };
 
 type GeneratedImage = {
@@ -222,6 +225,7 @@ const blankPayment = (): Payment => ({
   amountCents: 0,
   category: "",
   note: "",
+  pinned: false,
 });
 
 const blankCard = (): FinanceCard => {
@@ -340,7 +344,7 @@ function progressTone(percent: number) {
 function cloneCard(card: FinanceCard): FinanceCard {
   return {
     ...card,
-    payments: card.payments.map((payment) => ({ ...payment })),
+    payments: card.payments.map((payment) => ({ ...payment, pinned: Boolean(payment.pinned) })),
     images: card.images.map((image) => ({ ...image })),
   };
 }
@@ -1377,13 +1381,16 @@ export default function CardsFinanceirosApp({
 
   function duplicateCard(source: FinanceCard) {
     const now = new Date().toISOString();
+    const pinnedPayments = source.payments.filter(
+      (payment) => payment.pinned && isMeaningfulPayment(payment),
+    );
     const nextDraft: FinanceCard = {
       ...cloneCard(source),
       id: createId(),
       createdAt: now,
       updatedAt: now,
       date: "",
-      payments: source.payments.map((payment) => ({ ...payment, id: createId() })),
+      payments: pinnedPayments.map((payment) => ({ ...payment, id: createId(), pinned: true })),
       images: [],
     };
 
@@ -1391,7 +1398,11 @@ export default function CardsFinanceirosApp({
     setIsDraftDirty(true);
     setDraftBackupStatus("pending");
     setMessages([]);
-    setNotice("Cópia criada. Revise data e valor antes de salvar.");
+    setNotice(
+      pinnedPayments.length
+        ? "Cópia criada com os pagamentos fixados. Revise data e valor antes de salvar."
+        : "Cópia criada sem pagamentos fixados. Revise data e valor antes de salvar.",
+    );
     setEditorStep("receipt");
     setScreen("editor");
   }
@@ -1953,7 +1964,10 @@ export default function CardsFinanceirosApp({
                 {draft.payments.length ? (
                   <div className="payments-list">
                     {draft.payments.map((payment, index) => (
-                      <div className="payment-item" key={payment.id}>
+                      <div
+                        className={`payment-item ${payment.pinned ? "is-pinned" : ""}`}
+                        key={payment.id}
+                      >
                         <div className="payment-index">{String(index + 1).padStart(2, "0")}</div>
                         <div className="payment-fields">
                           <label className="field">
@@ -2011,15 +2025,39 @@ export default function CardsFinanceirosApp({
                             />
                           </label>
                         </div>
-                        <button
-                          className="icon-button danger"
-                          type="button"
-                          onClick={() => removePayment(payment.id)}
-                          aria-label="Excluir pagamento"
-                          title="Excluir pagamento"
-                        >
-                          <Trash2 size={18} aria-hidden="true" />
-                        </button>
+                        <div className="payment-actions">
+                          <button
+                            className={`icon-button pin-toggle ${payment.pinned ? "is-pinned" : ""}`}
+                            type="button"
+                            onClick={() => updatePayment(payment.id, { pinned: !payment.pinned })}
+                            aria-label={
+                              payment.pinned
+                                ? "Desfixar pagamento recorrente"
+                                : "Fixar pagamento recorrente"
+                            }
+                            aria-pressed={payment.pinned}
+                            title={
+                              payment.pinned
+                                ? "Desfixar pagamento recorrente"
+                                : "Fixar para duplicar junto"
+                            }
+                          >
+                            {payment.pinned ? (
+                              <Pin size={18} aria-hidden="true" />
+                            ) : (
+                              <PinOff size={18} aria-hidden="true" />
+                            )}
+                          </button>
+                          <button
+                            className="icon-button danger"
+                            type="button"
+                            onClick={() => removePayment(payment.id)}
+                            aria-label="Excluir pagamento"
+                            title="Excluir pagamento"
+                          >
+                            <Trash2 size={18} aria-hidden="true" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
