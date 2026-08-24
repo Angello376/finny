@@ -1524,6 +1524,18 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.filter-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.filter-clear {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 .stats-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2503,6 +2515,11 @@ button:disabled {
 
   .summary-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .payment-item {

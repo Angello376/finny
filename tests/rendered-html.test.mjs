@@ -163,6 +163,9 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /Fixar para duplicar junto/);
   assert.match(appShell, /type FilterState = \{\s*month: string;\s*year: string;\s*\}/);
   assert.match(appShell, /Mês e ano/);
+  assert.match(appShell, /className="filter-toolbar"/);
+  assert.match(appShell, /className="ghost-action filter-clear"/);
+  assert.match(appShell, /Limpar/);
   assert.doesNotMatch(appShell, /className="quick-search"/);
   assert.doesNotMatch(appShell, /filters\.(text|type|minValue|maxValue)/);
   assert.doesNotMatch(appShell, /Buscar cards|Valor mínimo|Valor máximo|Sem mínimo|Sem máximo/);
@@ -180,6 +183,9 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(css, /\.stepper-item\.is-active/);
   assert.match(css, /\.review-grid/);
   assert.doesNotMatch(css, /\.quick-search|\.input-with-icon/);
+  assert.match(css, /\.filter-toolbar/);
+  assert.match(css, /\.filter-clear/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.filter-toolbar\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\.home-disclosure/);
   assert.match(css, /\.status-pill\.success/);
   assert.match(css, /\.history-group\s*\{/);

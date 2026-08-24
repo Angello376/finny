@@ -2653,37 +2653,39 @@ function FiltersPanel({
         <SlidersHorizontal size={18} aria-hidden="true" />
       </div>
 
-      <div className="filters-grid">
-        <label className="field">
-          <span>Mês</span>
-          <select
-            value={filters.month}
-            onChange={(event) => patchFilters({ month: event.target.value })}
-          >
-            <option value="">Todos</option>
-            {monthNames.map((month, index) => (
-              <option key={month} value={String(index + 1).padStart(2, "0")}>
-                {month}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="filter-toolbar">
+        <div className="filters-grid">
+          <label className="field">
+            <span>Mês</span>
+            <select
+              value={filters.month}
+              onChange={(event) => patchFilters({ month: event.target.value })}
+            >
+              <option value="">Todos</option>
+              {monthNames.map((month, index) => (
+                <option key={month} value={String(index + 1).padStart(2, "0")}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="field">
-          <span>Ano</span>
-          <input
-            inputMode="numeric"
-            value={filters.year}
-            onChange={(event) => patchFilters({ year: event.target.value.replace(/\D/g, "").slice(0, 4) })}
-            placeholder="Todos"
-          />
-        </label>
+          <label className="field">
+            <span>Ano</span>
+            <input
+              inputMode="numeric"
+              value={filters.year}
+              onChange={(event) => patchFilters({ year: event.target.value.replace(/\D/g, "").slice(0, 4) })}
+              placeholder="Todos"
+            />
+          </label>
+        </div>
+
+        <button className="ghost-action filter-clear" type="button" onClick={() => onFilterChange(emptyFilters)}>
+          <X size={17} aria-hidden="true" />
+          Limpar
+        </button>
       </div>
-
-      <button className="ghost-action full" type="button" onClick={() => onFilterChange(emptyFilters)}>
-        <X size={17} aria-hidden="true" />
-        Limpar filtros
-      </button>
     </section>
   );
 }
