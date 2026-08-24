@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785959630000,
+      "tag": "0000_finance_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785961300000,
+      "tag": "0001_access_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785961600000,
+      "tag": "0002_seed_friend_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785962400000,
+      "tag": "0003_reset_access_to_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785963000000,
+      "tag": "0004_auth_email_events",
+      "breakpoints": true
+    }
+  ]
+}
