@@ -91,51 +91,25 @@ test("uses the requested animated login palette without mascot UI", async () => 
   assert.doesNotMatch(authShell + css, /Finny|finny|mascot|assets\/mascot/);
 });
 
-test("keeps the local login preview aligned with the app login", async () => {
-  const [authShell, css, preview] = await Promise.all([
-    readFile(new URL("../app/AuthShell.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
-    readFile(new URL("../work/login-background-preview.html", import.meta.url), "utf8"),
+test("keeps Finny PWA branding and removes obsolete starter assets", async () => {
+  const [layout, appShell, manifest, offline, serviceWorker] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"),
+    readFile(new URL("../public/offline.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
-  assert.doesNotMatch(authShell + css + preview, /Finny|finny|mascot|assets\/mascot/);
-  assert.doesNotMatch(authShell + css + preview, /login-finny|finny-login|finny-mascot/);
-  assert.match(preview, /aurora-drift/);
-  assert.match(preview, /grid-drift/);
-  assert.match(preview, /login-loading/);
-  assert.match(preview, /Esqueci minha senha/);
-  assert.match(preview, /Primeiro acesso\? Criar senha/);
-  assert.match(preview, /Criar minha senha/);
-  assert.match(preview, /panel\.hidden = true/);
-  assert.match(preview, /loadingScreen\.hidden = false/);
-  assert.match(preview, /login-loading-screen/);
-  assert.match(preview, /\.login-loading-screen \.login-loading-message/);
-  assert.match(preview, /login-loading-media/);
-  assert.match(preview, /login-loading-image/);
-  assert.match(preview, /src="\.\.\/public\/assets\/login\/loading-character\.png"/);
-  assert.doesNotMatch(preview, /renderTransparentLoadingFrame|removeConnectedSolidBackground|isRemovableBackground|getImageData|putImageData/);
-  assert.doesNotMatch(authShell + css + preview, /login-loader|loader-ring|loader-scan|loader-bars/);
-  assert.match(preview, /class="login-character-stage"/);
-  assert.match(preview, /login-character-image is-welcome/);
-  assert.match(preview, /login-character-image is-password/);
-  assert.match(preview, /src="\.\.\/public\/assets\/login\/welcome-character\.png"/);
-  assert.match(preview, /src="\.\.\/public\/assets\/login\/password-character\.png"/);
-  assert.match(preview, /password\.addEventListener\("focus", syncCharacterPose\)/);
-  assert.match(preview, /password\.addEventListener\("input", syncCharacterPose\)/);
-  assert.match(preview, /classList\.toggle\(\s*"is-password"/);
-  assert.match(preview, /character-enter/);
-  assert.match(preview, /character-float/);
-  assert.match(preview, /--panel:\s*#f8fafc/);
-  assert.match(preview, /--muted:\s*#e5e7eb/);
-  assert.match(preview, /--gray:\s*#374151/);
-  assert.match(preview, /body\s*\{[\s\S]*background:\s*[\s\S]*var\(--navy\);/);
-  assert.match(preview, /\.login-panel\s*\{[\s\S]*var\(--panel\)/);
-  assert.match(preview, /color:\s*var\(--gray\)/);
-  assert.match(preview, /color:\s*var\(--yellow\)/);
-  assert.match(preview, /--blue:\s*#2563eb/);
-  assert.match(preview, /background:\s*var\(--blue\)/);
-  assert.doesNotMatch(preview, />Cards Financeiros</);
-  assert.match(preview, /<svg viewBox="0 0 24 24" aria-hidden="true">/);
-  assert.match(preview, /aria-label="Mostrar senha"/);
-  assert.doesNotMatch(preview, />Ver<\/button>|>Ocultar<\/button>/);
+  const pwaSurface = layout + appShell + manifest + offline + serviceWorker;
+
+  assert.match(layout, /title:\s*"Finny"/);
+  assert.match(appShell, /\/assets\/brand\/finny-logo\.png/);
+  assert.match(manifest, /"name":\s*"Finny"/);
+  assert.match(manifest, /"short_name":\s*"Finny"/);
+  assert.match(offline, /<h1>Finny<\/h1>/);
+  assert.match(serviceWorker, /finny-pwa-v4/);
+  assert.doesNotMatch(
+    pwaSurface,
+    /favicon\.svg|window\.svg|file\.svg|globe\.svg|assets\/mascot|loading-character\.mp4/,
+  );
 });
