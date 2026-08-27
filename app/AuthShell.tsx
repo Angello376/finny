@@ -2,10 +2,13 @@
 
 import { createClient, type Session } from "@supabase/supabase-js";
 import {
+  ArrowLeft,
   Eye,
   EyeOff,
   KeyRound,
+  LifeBuoy,
   LogIn,
+  Send,
   UserPlus,
 } from "lucide-react";
 import Image from "next/image";
@@ -22,7 +25,7 @@ type AppUser = {
   displayName: string;
   email: string;
   requiresProfileName: boolean;
-  role: "admin" | "user";
+  role: "admin" | "socio" | "user";
   status: "active" | "blocked";
 };
 
@@ -30,6 +33,7 @@ type AuthMode = "signin" | "signup" | "update-password";
 type PendingAuthAction =
   | "signin"
   | "signup"
+  | "guest-support"
   | "reset-password"
   | "update-password"
   | "profile-name";
@@ -52,6 +56,11 @@ export default function AuthShell() {
   const [profileFirstName, setProfileFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isGuestSupportOpen, setIsGuestSupportOpen] = useState(false);
+  const [guestSupportName, setGuestSupportName] = useState("");
+  const [guestSupportEmail, setGuestSupportEmail] = useState("");
+  const [guestSupportSubject, setGuestSupportSubject] = useState("");
+  const [guestSupportMessage, setGuestSupportMessage] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -431,6 +440,41 @@ export default function AuthShell() {
     }
   }
 
+  async function handleGuestSupportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setPendingAuthAction("guest-support");
+    setStatusMessage("");
+
+    try {
+      const response = await fetch("/api/support/visitor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: guestSupportName,
+          email: guestSupportEmail,
+          subject: guestSupportSubject,
+          message: guestSupportMessage,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setStatusMessage(data.error ?? "Nao foi possivel enviar sua mensagem.");
+        return;
+      }
+
+      setGuestSupportSubject("");
+      setGuestSupportMessage("");
+      setStatusMessage("Mensagem enviada. Vou responder pelo e-mail informado.");
+    } finally {
+      setIsSubmitting(false);
+      setPendingAuthAction(null);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     setSession(null);
@@ -520,6 +564,101 @@ export default function AuthShell() {
   if (isSubmitting) {
     return (
       <LoginLoadingScreen message={authLoadingMessage(pendingAuthAction, mode)} />
+    );
+  }
+
+  if (isGuestSupportOpen) {
+    return (
+      <LoginShell>
+        <form
+          key="guest-support"
+          className="login-form"
+          onSubmit={handleGuestSupportSubmit}
+        >
+          <p className="login-helper">
+            Conte rapidamente o que aconteceu. A resposta chega pelo e-mail informado.
+          </p>
+
+          <label>
+            <span>Nome</span>
+            <input
+              autoComplete="name"
+              maxLength={60}
+              onChange={(event) => setGuestSupportName(event.target.value)}
+              placeholder="Seu nome"
+              required
+              type="text"
+              value={guestSupportName}
+            />
+          </label>
+
+          <label>
+            <span>E-mail</span>
+            <input
+              autoComplete="email"
+              inputMode="email"
+              onChange={(event) => setGuestSupportEmail(event.target.value)}
+              placeholder="seu@email.com"
+              required
+              type="email"
+              value={guestSupportEmail}
+            />
+          </label>
+
+          <label>
+            <span>Assunto</span>
+            <input
+              maxLength={120}
+              onChange={(event) => setGuestSupportSubject(event.target.value)}
+              placeholder="Ex: não consigo entrar"
+              required
+              type="text"
+              value={guestSupportSubject}
+            />
+          </label>
+
+          <label>
+            <span>Mensagem</span>
+            <textarea
+              maxLength={1800}
+              onChange={(event) => setGuestSupportMessage(event.target.value)}
+              placeholder="Descreva o problema"
+              required
+              rows={4}
+              value={guestSupportMessage}
+            />
+          </label>
+
+          {statusMessage ? (
+            <p className="login-message" role="status">
+              {statusMessage}
+            </p>
+          ) : null}
+
+          <button
+            className={`login-button${isSubmitting ? " is-submitting" : ""}`}
+            disabled={isSubmitting}
+            type="submit"
+            aria-busy={isSubmitting}
+          >
+            <Send size={19} aria-hidden="true" />
+            Enviar pedido de ajuda
+          </button>
+        </form>
+
+        <button
+          className="login-muted-action"
+          disabled={isSubmitting}
+          type="button"
+          onClick={() => {
+            setIsGuestSupportOpen(false);
+            setStatusMessage("");
+          }}
+        >
+          <ArrowLeft size={14} aria-hidden="true" />
+          Voltar para login
+        </button>
+      </LoginShell>
     );
   }
 
@@ -666,14 +805,29 @@ export default function AuthShell() {
       </form>
 
       {mode === "signin" ? (
-        <button
-          className="login-muted-action"
-          disabled={isSubmitting}
-          type="button"
-          onClick={handlePasswordReset}
-        >
-          Esqueci minha senha
-        </button>
+        <>
+          <button
+            className="login-muted-action"
+            disabled={isSubmitting}
+            type="button"
+            onClick={handlePasswordReset}
+          >
+            Esqueci minha senha
+          </button>
+          <button
+            className="login-muted-action"
+            disabled={isSubmitting}
+            type="button"
+            onClick={() => {
+              setIsGuestSupportOpen(true);
+              setGuestSupportEmail(email);
+              setStatusMessage("");
+            }}
+          >
+            <LifeBuoy size={14} aria-hidden="true" />
+            Precisa de ajuda?
+          </button>
+        </>
       ) : null}
 
       <button
@@ -683,6 +837,7 @@ export default function AuthShell() {
         onClick={() => {
           setMode(mode === "signin" ? "signup" : "signin");
           setFirstName("");
+          setIsGuestSupportOpen(false);
           setIsPasswordFocused(false);
           setStatusMessage("");
         }}
@@ -773,6 +928,7 @@ function authLoadingMessage(
   if (action === "reset-password") return "Enviando link seguro...";
   if (action === "update-password") return "Salvando nova senha...";
   if (action === "profile-name") return "Salvando seu perfil...";
+  if (action === "guest-support") return "Enviando pedido de ajuda...";
   if (action === "signup") return "Criando acesso...";
   if (action === "signin") return "Validando acesso...";
   return mode === "update-password" ? "Preparando senha..." : "Preparando acesso...";

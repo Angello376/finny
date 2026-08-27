@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BadgeDollarSign,
   BarChart3,
+  Boxes,
   CheckCircle2,
   Copy,
   CreditCard,
@@ -12,19 +13,27 @@ import {
   History,
   Info,
   LayoutDashboard,
+  LifeBuoy,
   ListChecks,
   LogOut,
+  MessageCircle,
   Moon,
+  PackageMinus,
+  PackagePlus,
+  Pencil,
   Pin,
   PinOff,
   Plus,
   ReceiptText,
   RefreshCw,
   Save,
+  Search,
+  Send,
   Share2,
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
+  Store,
   Sun,
   Trash2,
   UserCircle,
@@ -138,12 +147,15 @@ type HistoryMonthGroup = {
   paymentCount: number;
 };
 
+type AppRole = "admin" | "socio" | "user";
+
 type ReleaseAnnouncement = {
   id: string;
   title: string;
   summary: string;
   highlights: string[];
   steps: string[];
+  audienceRoles?: AppRole[];
 };
 
 type DraftBackupStatus = "idle" | "pending" | "saved" | "restored";
@@ -159,18 +171,97 @@ type AppUser = {
   displayName: string;
   email: string;
   requiresProfileName: boolean;
-  role: "admin" | "user";
+  role: AppRole;
   status: "active" | "blocked";
 };
 
 type AccessUser = {
   email: string;
   userId: string | null;
-  role: "admin" | "user";
+  role: AppRole;
   status: "active" | "blocked";
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
+};
+
+type StoreMovementType = "entry" | "sale" | "adjustment" | "initial";
+
+type StoreProduct = {
+  id: string;
+  name: string;
+  category: string;
+  sku: string;
+  costCents: number;
+  priceCents: number;
+  stockQuantity: number;
+  minStockQuantity: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdByUserId: string;
+  updatedByUserId: string;
+};
+
+type StoreInventoryMovement = {
+  id: string;
+  productId: string;
+  type: StoreMovementType;
+  quantityDelta: number;
+  quantityAfter: number;
+  unitAmountCents: number;
+  note: string;
+  createdAt: string;
+  createdByUserId: string;
+  createdByName: string;
+};
+
+type StoreProductDraft = {
+  id: string;
+  name: string;
+  category: string;
+  sku: string;
+  costCents: number;
+  priceCents: number;
+  stockQuantity: number;
+  minStockQuantity: number;
+};
+
+type StoreMovementInput = {
+  productId?: string;
+  type?: "entry" | "sale";
+  quantity?: number;
+  note?: string;
+};
+
+type SupportStatus = "new" | "in_progress" | "resolved";
+
+type SupportSource = "user" | "visitor";
+
+type SupportSenderType = "user" | "visitor" | "admin";
+
+type SupportMessage = {
+  id: string;
+  threadId: string;
+  senderType: SupportSenderType;
+  senderName: string;
+  senderEmail: string;
+  body: string;
+  createdAt: string;
+};
+
+type SupportThread = {
+  id: string;
+  userId: string | null;
+  source: SupportSource;
+  name: string;
+  email: string;
+  subject: string;
+  status: SupportStatus;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+  messages: SupportMessage[];
 };
 
 type AuthEmailQuota = {
@@ -237,22 +328,24 @@ const IOS_INSTALL_HINT_KEY = "cards-financeiros:ios-install-hint-dismissed";
 const DRAFTS_KEY_PREFIX = "cards-financeiros:drafts:";
 const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:";
 const DRAFT_SAVE_DELAY_MS = 450;
+const STORE_SYNC_INTERVAL_MS = 12000;
 
 // Set to null when there is no active release note to show before entering the app.
 const currentRelease: ReleaseAnnouncement | null = {
-  id: "1.2",
-  title: "Atualização 1.2",
+  id: "1.3",
+  title: "Atualização 1.3",
   summary:
-    "A entrada no Finny ficou mais limpa e tranquila.",
+    "A Loja ficou mais rápida para cadastrar, vender e acompanhar o estoque.",
+  audienceRoles: ["socio"],
   highlights: [
-    "Carregamento mais bonito ao entrar.",
-    "Tela inicial sem botão repetido.",
-    "Experiência mais limpa no login.",
+    "Venda com um clique pelo botão Vendi 1.",
+    "Histórico da loja com cores mais fáceis de entender.",
+    "Faturamento e lucro ficaram mais claros.",
   ],
   steps: [
-    "Entre normalmente com seu e-mail e senha.",
-    "Aguarde o Finny finalizar o carregamento.",
-    "Depois disso, o app abre direto para seus cards.",
+    "Entre na aba Loja, se ela estiver liberada para seu usuário.",
+    "Use Novo produto para cadastrar ou editar itens do estoque.",
+    "Clique em Vendi 1 para registrar uma saída rápida.",
   ],
 };
 
@@ -287,6 +380,17 @@ const blankCard = (): FinanceCard => {
   };
 };
 
+const blankStoreProductDraft = (): StoreProductDraft => ({
+  id: "",
+  name: "",
+  category: "",
+  sku: "",
+  costCents: 0,
+  priceCents: 0,
+  stockQuantity: 0,
+  minStockQuantity: 0,
+});
+
 function createId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -301,6 +405,19 @@ function formatCurrency(cents: number) {
     currency: "BRL",
     maximumFractionDigits: 2,
   }).format(cents / 100);
+}
+
+function formatProjectedProfitHint(cents: number) {
+  const value = formatCurrency(Math.abs(cents));
+  return cents >= 0
+    ? `Se vender tudo: lucro ${value}`
+    : `Se vender tudo: prejuízo ${value}`;
+}
+
+function getUserGreetingName(user: AppUser) {
+  const displayName = user.displayName.trim();
+  if (displayName && !displayName.includes("@")) return displayName.split(/\s+/)[0];
+  return "usuário";
 }
 
 function formatHistorySummaryCurrency(cents: number) {
@@ -420,6 +537,12 @@ function releaseAckStorageKey(userId: string, releaseId: string) {
   return `${RELEASE_ACK_KEY_PREFIX}${userId}:${releaseId}`;
 }
 
+function getActiveReleaseForUser(user: AppUser) {
+  if (!currentRelease) return null;
+  if (!currentRelease.audienceRoles) return currentRelease;
+  return currentRelease.audienceRoles.includes(user.role) ? currentRelease : null;
+}
+
 function readDraftSnapshots(userId: string): Record<string, DraftSnapshot> {
   if (typeof localStorage === "undefined") return {};
 
@@ -514,6 +637,68 @@ const financeRepository = {
   },
 };
 
+const storeRepository = {
+  async list(accessToken: string) {
+    const response = await fetch("/api/store", {
+      headers: authHeaders(accessToken),
+      cache: "no-store",
+    });
+
+    return readJsonResponse<{
+      products: StoreProduct[];
+      movements: StoreInventoryMovement[];
+    }>(response);
+  },
+  async saveProduct(product: StoreProductDraft, accessToken: string) {
+    const response = await fetch("/api/store/products", {
+      method: "POST",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      body: JSON.stringify(product),
+    });
+
+    return readJsonResponse<{
+      product: StoreProduct;
+      products: StoreProduct[];
+      movements: StoreInventoryMovement[];
+    }>(response);
+  },
+  async moveStock(
+    input: {
+      productId: string;
+      type: "entry" | "sale";
+      quantity: number;
+      note: string;
+    },
+    accessToken: string,
+  ) {
+    const response = await fetch("/api/store/movements", {
+      method: "POST",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    return readJsonResponse<{
+      products: StoreProduct[];
+      movements: StoreInventoryMovement[];
+    }>(response);
+  },
+  async archiveProduct(productId: string, accessToken: string) {
+    if (!productId) {
+      throw new Error("Selecione um produto para arquivar.");
+    }
+
+    const response = await fetch(`/api/store/products/${encodeURIComponent(productId)}`, {
+      method: "DELETE",
+      headers: authHeaders(accessToken),
+    });
+
+    return readJsonResponse<{
+      products: StoreProduct[];
+      movements: StoreInventoryMovement[];
+    }>(response);
+  },
+};
+
 function authHeaders(accessToken: string) {
   return { authorization: `Bearer ${accessToken}` };
 }
@@ -522,7 +707,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as { error?: string };
 
   if (!response.ok) {
-    throw new Error(data.error ?? "Nao foi possivel sincronizar seus cards.");
+    throw new Error(data.error ?? "Não foi possível concluir a ação agora.");
   }
 
   return data as T;
@@ -530,6 +715,19 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 
 function sortCardsByUpdatedAt(a: FinanceCard, b: FinanceCard) {
   return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+}
+
+function sortSupportThreadsByLastMessage(a: SupportThread, b: SupportThread) {
+  return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+}
+
+function upsertSupportThread(
+  threads: SupportThread[],
+  thread: SupportThread,
+) {
+  return [thread, ...threads.filter((current) => current.id !== thread.id)].sort(
+    sortSupportThreadsByLastMessage,
+  );
 }
 
 function validateReceiptStep(card: FinanceCard) {
@@ -1269,10 +1467,11 @@ export default function CardsFinanceirosApp({
   onSignOut: () => void;
   user: AppUser;
 }) {
+  const activeRelease = getActiveReleaseForUser(user);
   const [theme, setTheme] = useState<ThemeName>("dark");
   const [cards, setCards] = useState<FinanceCard[]>([]);
   const [draft, setDraft] = useState<FinanceCard | null>(null);
-  const [screen, setScreen] = useState<"home" | "editor" | "admin">("home");
+  const [screen, setScreen] = useState<"home" | "editor" | "store" | "support" | "admin">("home");
   const [editorStep, setEditorStep] = useState<EditorStepId>("receipt");
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [selectedFormat] = useState<CardFormatId>("square");
@@ -1286,13 +1485,33 @@ export default function CardsFinanceirosApp({
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
   const [releaseGateStatus, setReleaseGateStatus] =
-    useState<ReleaseGateStatus>(() => (currentRelease ? "checking" : "cleared"));
+    useState<ReleaseGateStatus>(() => (activeRelease ? "checking" : "cleared"));
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [adminEmail, setAdminEmail] = useState("");
-  const [adminRole, setAdminRole] = useState<"admin" | "user">("user");
+  const [adminRole, setAdminRole] = useState<AppRole>("user");
   const [adminStatus, setAdminStatus] = useState<"active" | "blocked">("active");
   const [adminMessage, setAdminMessage] = useState("");
   const [authEmailQuota, setAuthEmailQuota] = useState<AuthEmailQuota | null>(null);
+  const [supportThread, setSupportThread] = useState<SupportThread | null>(null);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportNotice, setSupportNotice] = useState("");
+  const [isSupportLoading, setIsSupportLoading] = useState(false);
+  const [adminSupportThreads, setAdminSupportThreads] = useState<SupportThread[]>([]);
+  const [selectedSupportThreadId, setSelectedSupportThreadId] = useState<string | null>(null);
+  const [adminSupportReply, setAdminSupportReply] = useState("");
+  const [adminSupportMessage, setAdminSupportMessage] = useState("");
+  const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
+  const [storeMovements, setStoreMovements] = useState<StoreInventoryMovement[]>([]);
+  const [storeProductDraft, setStoreProductDraft] = useState<StoreProductDraft>(
+    blankStoreProductDraft,
+  );
+  const [selectedStoreProductId, setSelectedStoreProductId] = useState<string>("");
+  const [storeMovementType, setStoreMovementType] = useState<"entry" | "sale">("entry");
+  const [storeMovementQuantity, setStoreMovementQuantity] = useState("");
+  const [storeMovementNote, setStoreMovementNote] = useState("");
+  const [storeMessage, setStoreMessage] = useState("");
+  const [isStoreLoading, setIsStoreLoading] = useState(false);
 
   const loadAccessUsers = useCallback(async () => {
     try {
@@ -1311,6 +1530,80 @@ export default function CardsFinanceirosApp({
       );
     }
   }, [accessToken]);
+
+  const loadSupportConversation = useCallback(async () => {
+    setIsSupportLoading(true);
+    setSupportNotice("");
+
+    try {
+      const response = await fetch("/api/support", {
+        headers: authHeaders(accessToken),
+        cache: "no-store",
+      });
+      const data = await readJsonResponse<{ thread: SupportThread | null }>(response);
+      setSupportThread(data.thread);
+    } catch (error) {
+      setSupportNotice(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar o suporte.",
+      );
+    } finally {
+      setIsSupportLoading(false);
+    }
+  }, [accessToken]);
+
+  const loadAdminSupport = useCallback(async () => {
+    if (user.role !== "admin") return;
+    setAdminSupportMessage("");
+
+    try {
+      const response = await fetch("/api/admin/support", {
+        headers: authHeaders(accessToken),
+        cache: "no-store",
+      });
+      const data = await readJsonResponse<{ threads: SupportThread[] }>(response);
+      setAdminSupportThreads(data.threads);
+      setSelectedSupportThreadId((current) =>
+        current && data.threads.some((thread) => thread.id === current)
+          ? current
+          : data.threads[0]?.id ?? null,
+      );
+    } catch (error) {
+      setAdminSupportMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel carregar atendimentos.",
+      );
+    }
+  }, [accessToken, user.role]);
+
+  const loadStoreInventory = useCallback(async (options?: { silent?: boolean }) => {
+    if (user.role !== "admin" && user.role !== "socio") return;
+    if (!options?.silent) {
+      setIsStoreLoading(true);
+      setStoreMessage("");
+    }
+
+    try {
+      const data = await storeRepository.list(accessToken);
+      setStoreProducts(data.products);
+      setStoreMovements(data.movements);
+      setSelectedStoreProductId((current) =>
+        current && data.products.some((product) => product.id === current)
+          ? current
+          : data.products[0]?.id ?? "",
+      );
+    } catch (error) {
+      if (!options?.silent) {
+        setStoreMessage(
+          error instanceof Error ? error.message : "Nao foi possivel carregar a loja.",
+        );
+      }
+    } finally {
+      if (!options?.silent) setIsStoreLoading(false);
+    }
+  }, [accessToken, user.role]);
 
   useEffect(() => {
     let alive = true;
@@ -1396,17 +1689,17 @@ export default function CardsFinanceirosApp({
   }, []);
 
   useEffect(() => {
-    if (!currentRelease) {
+    if (!activeRelease) {
       setReleaseGateStatus("cleared");
       return;
     }
 
     setReleaseGateStatus(
-      localStorage.getItem(releaseAckStorageKey(user.id, currentRelease.id)) === "true"
+      localStorage.getItem(releaseAckStorageKey(user.id, activeRelease.id)) === "true"
         ? "cleared"
         : "required",
     );
-  }, [user.id]);
+  }, [activeRelease, user.id]);
 
   useEffect(() => {
     const standalone = isRunningAsInstalledApp();
@@ -1436,10 +1729,34 @@ export default function CardsFinanceirosApp({
   useEffect(() => {
     if (user.role !== "admin") return;
     loadAccessUsers();
-  }, [loadAccessUsers, user.role]);
+    loadAdminSupport();
+  }, [loadAccessUsers, loadAdminSupport, user.role]);
+
+  useEffect(() => {
+    if (user.role !== "admin" && user.role !== "socio") return;
+    loadStoreInventory();
+  }, [loadStoreInventory, user.role]);
+
+  useEffect(() => {
+    if (screen !== "store" || (user.role !== "admin" && user.role !== "socio")) return;
+
+    const refreshQuietly = () => {
+      void loadStoreInventory({ silent: true });
+    };
+    const syncInterval = window.setInterval(refreshQuietly, STORE_SYNC_INTERVAL_MS);
+    window.addEventListener("focus", refreshQuietly);
+
+    return () => {
+      window.clearInterval(syncInterval);
+      window.removeEventListener("focus", refreshQuietly);
+    };
+  }, [loadStoreInventory, screen, user.role]);
 
   useEffect(() => {
     if (screen === "admin" && user.role !== "admin") {
+      setScreen("home");
+    }
+    if (screen === "store" && user.role !== "admin" && user.role !== "socio") {
       setScreen("home");
     }
   }, [screen, user.role]);
@@ -1473,12 +1790,30 @@ export default function CardsFinanceirosApp({
     setScreen("home");
   }
 
+  function openStoreArea() {
+    if (user.role !== "admin" && user.role !== "socio") return;
+    setMessages([]);
+    setNotice("");
+    setStoreMessage("");
+    setScreen("store");
+    void loadStoreInventory();
+  }
+
+  function openSupportArea() {
+    setMessages([]);
+    setNotice("");
+    setSupportNotice("");
+    setScreen("support");
+    void loadSupportConversation();
+  }
+
   function openAdminArea() {
     if (user.role !== "admin") return;
     setMessages([]);
     setNotice("");
     setScreen("admin");
     void loadAccessUsers();
+    void loadAdminSupport();
   }
 
   function dismissIosInstallHint() {
@@ -1487,8 +1822,8 @@ export default function CardsFinanceirosApp({
   }
 
   function dismissReleaseAnnouncement() {
-    if (currentRelease) {
-      localStorage.setItem(releaseAckStorageKey(user.id, currentRelease.id), "true");
+    if (activeRelease) {
+      localStorage.setItem(releaseAckStorageKey(user.id, activeRelease.id), "true");
     }
     setReleaseGateStatus("cleared");
   }
@@ -1570,6 +1905,205 @@ export default function CardsFinanceirosApp({
       setAdminMessage(
         error instanceof Error ? error.message : "Nao foi possivel remover o usuario.",
       );
+    }
+  }
+
+  async function sendSupportMessage() {
+    if (!supportMessage.trim()) {
+      setSupportNotice("Escreva sua mensagem antes de enviar.");
+      return;
+    }
+
+    setIsSupportLoading(true);
+    setSupportNotice("");
+
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+        body: JSON.stringify({
+          subject: supportSubject,
+          message: supportMessage,
+        }),
+      });
+      const data = await readJsonResponse<{ thread: SupportThread | null }>(response);
+      setSupportThread(data.thread);
+      setSupportSubject("");
+      setSupportMessage("");
+      setSupportNotice("Mensagem enviada.");
+    } catch (error) {
+      setSupportNotice(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel enviar a mensagem.",
+      );
+    } finally {
+      setIsSupportLoading(false);
+    }
+  }
+
+  async function sendAdminSupportReply(threadId: string) {
+    if (!adminSupportReply.trim()) {
+      setAdminSupportMessage("Escreva a resposta antes de enviar.");
+      return;
+    }
+
+    setAdminSupportMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/support/${encodeURIComponent(threadId)}/messages`,
+        {
+          method: "POST",
+          headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+          body: JSON.stringify({ message: adminSupportReply }),
+        },
+      );
+      const data = await readJsonResponse<{ thread: SupportThread | null }>(response);
+      if (data.thread) {
+        setAdminSupportThreads((current) => upsertSupportThread(current, data.thread));
+        setSelectedSupportThreadId(data.thread.id);
+      }
+      setAdminSupportReply("");
+      setAdminSupportMessage("Resposta enviada.");
+    } catch (error) {
+      setAdminSupportMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel responder o atendimento.",
+      );
+    }
+  }
+
+  async function updateAdminSupportStatus(
+    threadId: string,
+    status: SupportStatus,
+  ) {
+    setAdminSupportMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/support/${encodeURIComponent(threadId)}`, {
+        method: "PATCH",
+        headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await readJsonResponse<{ thread: SupportThread | null }>(response);
+      if (data.thread) {
+        setAdminSupportThreads((current) => upsertSupportThread(current, data.thread));
+        setSelectedSupportThreadId(data.thread.id);
+      }
+      setAdminSupportMessage("Status atualizado.");
+    } catch (error) {
+      setAdminSupportMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel alterar o status.",
+      );
+    }
+  }
+
+  async function saveStoreProduct() {
+    setIsStoreLoading(true);
+    setStoreMessage("");
+
+    try {
+      const data = await storeRepository.saveProduct(storeProductDraft, accessToken);
+      setStoreProducts(data.products);
+      setStoreMovements(data.movements);
+      setSelectedStoreProductId(data.product.id);
+      setStoreProductDraft(blankStoreProductDraft());
+      setStoreMessage("Produto salvo.");
+      return true;
+    } catch (error) {
+      setStoreMessage(
+        error instanceof Error ? error.message : "Nao foi possivel salvar o produto.",
+      );
+      return false;
+    } finally {
+      setIsStoreLoading(false);
+    }
+  }
+
+  function editStoreProduct(product: StoreProduct) {
+    setStoreProductDraft({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      sku: product.sku,
+      costCents: product.costCents,
+      priceCents: product.priceCents,
+      stockQuantity: product.stockQuantity,
+      minStockQuantity: product.minStockQuantity,
+    });
+    setStoreMessage("Editando produto.");
+  }
+
+  async function archiveStoreProductFromApp(product: StoreProduct) {
+    if (!product.id) {
+      setStoreMessage("Atualizando o produto antes de arquivar. Tente novamente em instantes.");
+      await loadStoreInventory();
+      return;
+    }
+
+    const confirmed = window.confirm(`Arquivar ${product.name}?`);
+    if (!confirmed) return;
+
+    setIsStoreLoading(true);
+    setStoreMessage("");
+
+    try {
+      const data = await storeRepository.archiveProduct(product.id, accessToken);
+      setStoreProducts(data.products);
+      setStoreMovements(data.movements);
+      setSelectedStoreProductId((current) =>
+        current === product.id ? data.products[0]?.id ?? "" : current,
+      );
+      setStoreMessage("Produto arquivado.");
+    } catch (error) {
+      setStoreMessage(
+        error instanceof Error ? error.message : "Nao foi possivel arquivar o produto.",
+      );
+    } finally {
+      setIsStoreLoading(false);
+    }
+  }
+
+  async function saveStoreMovement(input?: StoreMovementInput) {
+    const productId = input?.productId ?? selectedStoreProductId;
+    const type = input?.type ?? storeMovementType;
+    const quantity =
+      input?.quantity ?? Number(storeMovementQuantity.replace(/\D/g, ""));
+    const note = input?.note ?? storeMovementNote;
+
+    setIsStoreLoading(true);
+    setStoreMessage("");
+
+    try {
+      const data = await storeRepository.moveStock(
+        {
+          productId,
+          type,
+          quantity,
+          note,
+        },
+        accessToken,
+      );
+      setStoreProducts(data.products);
+      setStoreMovements(data.movements);
+      setSelectedStoreProductId(productId);
+      setStoreMovementQuantity("");
+      setStoreMovementNote("");
+      setStoreMessage(type === "sale" ? "Venda registrada." : "Entrada registrada.");
+      return true;
+    } catch (error) {
+      setStoreMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel registrar a movimentacao.",
+      );
+      return false;
+    } finally {
+      setIsStoreLoading(false);
     }
   }
 
@@ -1876,9 +2410,27 @@ export default function CardsFinanceirosApp({
   }
 
   const isAdminArea = screen === "admin" && user.role === "admin";
+  const canAccessStore = user.role === "admin" || user.role === "socio";
+  const isStoreArea = screen === "store" && canAccessStore;
+  const isSupportArea = screen === "support";
+  const isCardsArea = screen === "home" || screen === "editor";
+  const workspaceTitle = isAdminArea
+    ? "Controle de acesso"
+    : isStoreArea
+      ? "Loja"
+      : isSupportArea
+        ? "Suporte"
+        : "Cards Financeiros";
+  const workspaceEyebrow = isAdminArea
+    ? "Admin"
+    : isStoreArea
+      ? "Estoque"
+      : isSupportArea
+        ? "Ajuda"
+        : "Módulo";
   const isGeneratingCard = busyAction === "generate";
 
-  if (currentRelease && releaseGateStatus !== "cleared") {
+  if (activeRelease && releaseGateStatus !== "cleared") {
     return (
       <main
         className={`release-gate${isStandaloneApp ? " is-standalone" : ""}`}
@@ -1888,7 +2440,7 @@ export default function CardsFinanceirosApp({
           <ReleaseGateLoading />
         ) : (
           <ReleaseAnnouncementGate
-            release={currentRelease}
+            release={activeRelease}
             user={user}
             onContinue={dismissReleaseAnnouncement}
             onSignOut={onSignOut}
@@ -1919,18 +2471,36 @@ export default function CardsFinanceirosApp({
           </span>
           <div>
             <strong>Finny</strong>
-            <span>controle financeiro</span>
+            <span>Olá, {getUserGreetingName(user)}</span>
           </div>
         </div>
 
         <nav aria-label="Menu principal">
           <button
-            className={`menu-item${isAdminArea ? "" : " is-active"}`}
+            className={`menu-item${isCardsArea ? " is-active" : ""}`}
             type="button"
             onClick={openCardsHome}
           >
             <LayoutDashboard size={18} aria-hidden="true" />
             Cards Financeiros
+          </button>
+          {canAccessStore ? (
+            <button
+              className={`menu-item${isStoreArea ? " is-active" : ""}`}
+              type="button"
+              onClick={openStoreArea}
+            >
+              <Store size={18} aria-hidden="true" />
+              Loja
+            </button>
+          ) : null}
+          <button
+            className={`menu-item${isSupportArea ? " is-active" : ""}`}
+            type="button"
+            onClick={openSupportArea}
+          >
+            <LifeBuoy size={18} aria-hidden="true" />
+            Suporte
           </button>
           {user.role === "admin" ? (
             <button
@@ -1976,13 +2546,33 @@ export default function CardsFinanceirosApp({
 
       <nav className="mobile-bottom-nav" aria-label="Menu principal mobile">
         <button
-          className={`mobile-nav-item${isAdminArea ? "" : " is-active"}`}
+          className={`mobile-nav-item${isCardsArea ? " is-active" : ""}`}
           type="button"
           onClick={openCardsHome}
-          aria-current={isAdminArea ? undefined : "page"}
+          aria-current={isCardsArea ? "page" : undefined}
         >
           <LayoutDashboard size={18} aria-hidden="true" />
           <span>Cards</span>
+        </button>
+        {canAccessStore ? (
+          <button
+            className={`mobile-nav-item${isStoreArea ? " is-active" : ""}`}
+            type="button"
+            onClick={openStoreArea}
+            aria-current={isStoreArea ? "page" : undefined}
+          >
+            <Store size={18} aria-hidden="true" />
+            <span>Loja</span>
+          </button>
+        ) : null}
+        <button
+          className={`mobile-nav-item${isSupportArea ? " is-active" : ""}`}
+          type="button"
+          onClick={openSupportArea}
+          aria-current={isSupportArea ? "page" : undefined}
+        >
+          <LifeBuoy size={18} aria-hidden="true" />
+          <span>Suporte</span>
         </button>
         {user.role === "admin" ? (
           <button
@@ -2000,10 +2590,10 @@ export default function CardsFinanceirosApp({
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <span className="eyebrow">{isAdminArea ? "Admin" : "Módulo"}</span>
-            <h1>{isAdminArea ? "Controle de acesso" : "Cards Financeiros"}</h1>
+            <span className="eyebrow">{workspaceEyebrow}</span>
+            <h1>{workspaceTitle}</h1>
           </div>
-          {!isAdminArea && screen !== "home" ? (
+          {screen === "editor" ? (
             <button className="primary-action" type="button" onClick={openNewCard}>
               <Plus size={20} aria-hidden="true" />
               Novo Card
@@ -2030,6 +2620,44 @@ export default function CardsFinanceirosApp({
             onNewCard={openNewCard}
             onOpenCard={openExistingCard}
           />
+        ) : isStoreArea ? (
+          <StorePanel
+            isLoading={isStoreLoading}
+            message={storeMessage}
+            movementNote={storeMovementNote}
+            movementQuantity={storeMovementQuantity}
+            movementType={storeMovementType}
+            productDraft={storeProductDraft}
+            products={storeProducts}
+            selectedProductId={selectedStoreProductId}
+            movements={storeMovements}
+            onArchiveProduct={archiveStoreProductFromApp}
+            onCancelProductEdit={() => {
+              setStoreProductDraft(blankStoreProductDraft());
+              setStoreMessage("");
+            }}
+            onEditProduct={editStoreProduct}
+            onMovementNoteChange={setStoreMovementNote}
+            onMovementQuantityChange={setStoreMovementQuantity}
+            onMovementTypeChange={setStoreMovementType}
+            onProductDraftChange={setStoreProductDraft}
+            onRefresh={loadStoreInventory}
+            onSaveMovement={saveStoreMovement}
+            onSaveProduct={saveStoreProduct}
+            onSelectProduct={setSelectedStoreProductId}
+          />
+        ) : isSupportArea ? (
+          <SupportPanel
+            isLoading={isSupportLoading}
+            message={supportMessage}
+            notice={supportNotice}
+            subject={supportSubject}
+            thread={supportThread}
+            onMessageChange={setSupportMessage}
+            onRefresh={loadSupportConversation}
+            onSend={sendSupportMessage}
+            onSubjectChange={setSupportSubject}
+          />
         ) : isAdminArea ? (
           <section className="admin-page">
             <AdminAccessPanel
@@ -2046,6 +2674,17 @@ export default function CardsFinanceirosApp({
               onSave={saveAccessUser}
               onStatusChange={setAdminStatus}
               onToggleUser={toggleAccessUser}
+            />
+            <AdminSupportPanel
+              message={adminSupportMessage}
+              reply={adminSupportReply}
+              selectedThreadId={selectedSupportThreadId}
+              threads={adminSupportThreads}
+              onRefresh={loadAdminSupport}
+              onReplyChange={setAdminSupportReply}
+              onSelectThread={setSelectedSupportThreadId}
+              onSendReply={sendAdminSupportReply}
+              onStatusChange={updateAdminSupportStatus}
             />
           </section>
         ) : draft ? (
@@ -2670,6 +3309,852 @@ function HomeScreen({
   );
 }
 
+function StorePanel({
+  isLoading,
+  message,
+  movementNote,
+  movementQuantity,
+  movementType,
+  productDraft,
+  products,
+  selectedProductId,
+  movements,
+  onArchiveProduct,
+  onCancelProductEdit,
+  onEditProduct,
+  onMovementNoteChange,
+  onMovementQuantityChange,
+  onMovementTypeChange,
+  onProductDraftChange,
+  onRefresh,
+  onSaveMovement,
+  onSaveProduct,
+  onSelectProduct,
+}: {
+  isLoading: boolean;
+  message: string;
+  movementNote: string;
+  movementQuantity: string;
+  movementType: "entry" | "sale";
+  productDraft: StoreProductDraft;
+  products: StoreProduct[];
+  selectedProductId: string;
+  movements: StoreInventoryMovement[];
+  onArchiveProduct: (product: StoreProduct) => void;
+  onCancelProductEdit: () => void;
+  onEditProduct: (product: StoreProduct) => void;
+  onMovementNoteChange: (value: string) => void;
+  onMovementQuantityChange: (value: string) => void;
+  onMovementTypeChange: (value: "entry" | "sale") => void;
+  onProductDraftChange: (draft: StoreProductDraft) => void;
+  onRefresh: () => void;
+  onSaveMovement: (input?: StoreMovementInput) => Promise<boolean>;
+  onSaveProduct: () => Promise<boolean>;
+  onSelectProduct: (productId: string) => void;
+}) {
+  const metrics = getStoreMetrics(products);
+  const [activePanel, setActivePanel] = useState<"product" | "movement" | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const selectedProduct =
+    products.find((product) => product.id === selectedProductId) ?? null;
+  const normalizedSearch = searchText.trim().toLocaleLowerCase("pt-BR");
+  const visibleProducts = normalizedSearch
+    ? products.filter((product) =>
+        `${product.name} ${product.category}`
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedSearch),
+      )
+    : products;
+  const saleMovements = movements.filter((movement) => movement.quantityDelta < 0);
+  const soldUnits = saleMovements.reduce(
+    (total, movement) => total + Math.abs(movement.quantityDelta),
+    0,
+  );
+  const marginPercent =
+    metrics.stockRevenueCents > 0
+      ? Math.round((metrics.projectedProfitCents / metrics.stockRevenueCents) * 100)
+      : null;
+  const lastSale = saleMovements[0] ?? null;
+
+  function patchProductDraft(patch: Partial<StoreProductDraft>) {
+    onProductDraftChange({ ...productDraft, ...patch });
+  }
+
+  function openProductPanel(product?: StoreProduct) {
+    if (product) {
+      onEditProduct(product);
+    } else {
+      onCancelProductEdit();
+    }
+    setActivePanel("product");
+  }
+
+  function openMovementPanel(product: StoreProduct, type: "entry" | "sale") {
+    onSelectProduct(product.id);
+    onMovementTypeChange(type);
+    onMovementQuantityChange("1");
+    onMovementNoteChange("");
+    setActivePanel("movement");
+  }
+
+  async function handleSaveProduct() {
+    const saved = await onSaveProduct();
+    if (saved) setActivePanel(null);
+  }
+
+  async function handleSaveMovement() {
+    const saved = await onSaveMovement();
+    if (saved) setActivePanel(null);
+  }
+
+  async function handleQuickSale(product: StoreProduct) {
+    const saved = await onSaveMovement({
+      productId: product.id,
+      type: "sale",
+      quantity: 1,
+      note: "",
+    });
+    if (saved) setActivePanel(null);
+  }
+
+  function closeActionPanel() {
+    onCancelProductEdit();
+    onMovementQuantityChange("");
+    onMovementNoteChange("");
+    setActivePanel(null);
+  }
+
+  return (
+    <section className="store-page">
+      <section className="store-summary" aria-label="Resumo da loja">
+        <MetricTile
+          icon={<Boxes size={19} aria-hidden="true" />}
+          label="Produtos"
+          value={String(metrics.productCount)}
+        />
+        <MetricTile
+          icon={<PackagePlus size={19} aria-hidden="true" />}
+          label="Em estoque"
+          value={`${metrics.stockQuantity} un.`}
+          tone={metrics.stockQuantity > 0 ? "success" : "neutral"}
+        />
+        <MetricTile
+          icon={<Wallet size={19} aria-hidden="true" />}
+          label="Investido"
+          value={formatCurrency(metrics.stockCostCents)}
+        />
+        <MetricTile
+          icon={<BarChart3 size={19} aria-hidden="true" />}
+          label="Faturamento"
+          value={formatCurrency(metrics.stockRevenueCents)}
+          hint={formatProjectedProfitHint(metrics.projectedProfitCents)}
+          tone={metrics.projectedProfitCents < 0 ? "danger" : "success"}
+        />
+      </section>
+
+      {message ? (
+        <div className="notice store-notice" role="status">
+          <CheckCircle2 size={18} aria-hidden="true" />
+          {message}
+        </div>
+      ) : null}
+
+      <div className="store-quick-layout">
+        <section
+          className="store-inventory-panel store-products-panel"
+          aria-labelledby="store-products-title"
+        >
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">Estoque</span>
+              <h2 id="store-products-title">Produtos</h2>
+            </div>
+            <div className="store-heading-actions">
+              <button className="ghost-action" type="button" onClick={onRefresh} disabled={isLoading}>
+                <RefreshCw size={16} aria-hidden="true" />
+                Atualizar
+              </button>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => openProductPanel()}
+              >
+                <Plus size={17} aria-hidden="true" />
+                Novo produto
+              </button>
+            </div>
+          </div>
+
+          <label className="store-search">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">Buscar produto</span>
+            <input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Buscar produto..."
+            />
+            {searchText ? (
+              <button type="button" onClick={() => setSearchText("")} aria-label="Limpar busca">
+                <X size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+          </label>
+
+          {visibleProducts.length ? (
+            <div className="store-product-list store-product-list-quick">
+              {visibleProducts.map((product) => (
+                <article className="store-product-row store-product-card" key={product.id}>
+                  <button
+                    className="store-product-open"
+                    type="button"
+                    onClick={() => openMovementPanel(product, "sale")}
+                  >
+                    <span className="store-product-icon">
+                      <Boxes size={18} aria-hidden="true" />
+                    </span>
+                    <span className="store-product-main">
+                      <strong>{product.name}</strong>
+                      <small>{product.category || "Sem categoria"}</small>
+                    </span>
+                    <span className="store-product-numbers">
+                      <strong>{product.stockQuantity} un.</strong>
+                      <small>
+                        Custo {formatCurrency(product.costCents)} · Venda{" "}
+                        {formatCurrency(product.priceCents)}
+                      </small>
+                    </span>
+                    <span className={`status-pill ${storeProductStatusTone(product)}`}>
+                      {storeProductStatusLabel(product)}
+                    </span>
+                  </button>
+
+                  <div className="store-product-quick-actions">
+                    <button
+                      className="primary-action compact"
+                      type="button"
+                      onClick={() => handleQuickSale(product)}
+                      disabled={isLoading || product.stockQuantity <= 0 || !product.id}
+                    >
+                      <PackageMinus size={16} aria-hidden="true" />
+                      Vendi 1
+                    </button>
+                    <button
+                      className="ghost-action compact"
+                      type="button"
+                      onClick={() => openMovementPanel(product, "entry")}
+                    >
+                      <PackagePlus size={16} aria-hidden="true" />
+                      Entrada
+                    </button>
+                    <button
+                      className="ghost-action compact"
+                      type="button"
+                      onClick={() => openProductPanel(product)}
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                      Editar
+                    </button>
+                    <button
+                      className="icon-button danger"
+                      type="button"
+                      onClick={() => onArchiveProduct(product)}
+                      aria-label={`Arquivar ${product.name}`}
+                      title="Arquivar produto"
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : products.length ? (
+            <EmptyState
+              icon={<Search size={26} aria-hidden="true" />}
+              title="Nenhum produto encontrado"
+              text="Limpe a busca ou procure por outro nome."
+            />
+          ) : (
+            <EmptyState
+              icon={<Boxes size={26} aria-hidden="true" />}
+              title="Estoque vazio"
+              text="Cadastre o primeiro produto para começar o controle da loja."
+            />
+          )}
+        </section>
+
+        <aside className="store-side-panel" aria-label="Ações rápidas da loja">
+          {activePanel === "product" ? (
+            <form
+              className="store-action-panel store-product-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSaveProduct();
+              }}
+            >
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">Produto</span>
+                  <h2>{productDraft.id ? "Editar produto" : "Novo produto"}</h2>
+                </div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={closeActionPanel}
+                  aria-label="Fechar cadastro"
+                  title="Fechar"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="form-grid store-compact-form">
+                <label className="field field-wide">
+                  <span>Nome do produto</span>
+                  <input
+                    value={productDraft.name}
+                    onChange={(event) => patchProductDraft({ name: event.target.value })}
+                    placeholder="Nome do produto"
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Categoria</span>
+                  <input
+                    value={productDraft.category}
+                    onChange={(event) => patchProductDraft({ category: event.target.value })}
+                    placeholder="Categoria"
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Quantidade inicial</span>
+                  <input
+                    inputMode="numeric"
+                    value={productDraft.stockQuantity ? String(productDraft.stockQuantity) : ""}
+                    onChange={(event) =>
+                      patchProductDraft({
+                        stockQuantity: parseQuantityInput(event.target.value),
+                      })
+                    }
+                    placeholder="Quantidade"
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Custo</span>
+                  <input
+                    inputMode="numeric"
+                    value={formatCurrencyInput(productDraft.costCents)}
+                    onChange={(event) =>
+                      patchProductDraft({
+                        costCents: parseCurrencyToCents(event.target.value),
+                      })
+                    }
+                    placeholder="Digite o custo"
+                  />
+                </label>
+
+                <label className="field">
+                  <span>Venda</span>
+                  <input
+                    inputMode="numeric"
+                    value={formatCurrencyInput(productDraft.priceCents)}
+                    onChange={(event) =>
+                      patchProductDraft({
+                        priceCents: parseCurrencyToCents(event.target.value),
+                      })
+                    }
+                    placeholder="Digite o valor"
+                  />
+                </label>
+
+                <label className="field field-wide">
+                  <span>Estoque mínimo</span>
+                  <input
+                    inputMode="numeric"
+                    value={
+                      productDraft.minStockQuantity
+                        ? String(productDraft.minStockQuantity)
+                        : ""
+                    }
+                    onChange={(event) =>
+                      patchProductDraft({
+                        minStockQuantity: parseQuantityInput(event.target.value),
+                      })
+                    }
+                    placeholder="Quantidade"
+                  />
+                </label>
+              </div>
+
+              <div className="store-panel-footer">
+                <button className="ghost-action" type="button" onClick={closeActionPanel}>
+                  Cancelar
+                </button>
+                <button className="secondary-action" type="submit" disabled={isLoading}>
+                  <Save size={17} aria-hidden="true" />
+                  Salvar produto
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {activePanel === "movement" ? (
+            <form
+              className="store-action-panel store-movement-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSaveMovement();
+              }}
+            >
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">Movimentação</span>
+                  <h2>{movementType === "entry" ? "Entrada" : "Saída"}</h2>
+                </div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={closeActionPanel}
+                  aria-label="Fechar movimentação"
+                  title="Fechar"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="store-selected-product">
+                {selectedProduct ? (
+                  <>
+                    <strong>{selectedProduct.name}</strong>
+                    <span>{selectedProduct.stockQuantity} unidade(s) disponíveis</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>Nenhum produto selecionado</strong>
+                    <span>Selecione um produto para movimentar.</span>
+                  </>
+                )}
+              </div>
+
+              <div className="store-mode-toggle" role="group" aria-label="Tipo de movimentação">
+                <button
+                  className={movementType === "sale" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => onMovementTypeChange("sale")}
+                >
+                  <PackageMinus size={16} aria-hidden="true" />
+                  Saída
+                </button>
+                <button
+                  className={movementType === "entry" ? "is-active" : ""}
+                  type="button"
+                  onClick={() => onMovementTypeChange("entry")}
+                >
+                  <PackagePlus size={16} aria-hidden="true" />
+                  Entrada
+                </button>
+              </div>
+
+              <div className="form-grid store-compact-form">
+                <label className="field">
+                  <span>Quantidade</span>
+                  <input
+                    inputMode="numeric"
+                    value={movementQuantity}
+                    onChange={(event) =>
+                      onMovementQuantityChange(event.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Quantidade"
+                  />
+                </label>
+
+                <label className="field field-wide">
+                  <span>Observação</span>
+                  <input
+                    value={movementNote}
+                    onChange={(event) => onMovementNoteChange(event.target.value)}
+                    placeholder="Observação opcional"
+                  />
+                </label>
+              </div>
+
+              <button
+                className="primary-action full"
+                type="submit"
+                disabled={isLoading || !selectedProduct}
+              >
+                {movementType === "entry" ? (
+                  <PackagePlus size={18} aria-hidden="true" />
+                ) : (
+                  <PackageMinus size={18} aria-hidden="true" />
+                )}
+                Registrar {movementType === "entry" ? "entrada" : "saída"}
+              </button>
+            </form>
+          ) : null}
+
+          {!activePanel ? (
+            <div className="store-action-panel store-insight-panel">
+              <div>
+                <span className="eyebrow">Resumo</span>
+                <h2>Leitura rápida</h2>
+              </div>
+              <div className="store-mini-metrics">
+                <span>
+                  <small>Vendidas</small>
+                  <strong>{soldUnits} un.</strong>
+                </span>
+                <span>
+                  <small>Margem</small>
+                  <strong>{marginPercent === null ? "Sem dados" : `${marginPercent}%`}</strong>
+                </span>
+              </div>
+              <p>
+                {lastSale
+                  ? `Última saída: ${movementProductName(lastSale, products)}`
+                  : "Nenhuma saída registrada ainda."}
+              </p>
+            </div>
+          ) : null}
+
+          <details
+            className="store-history-disclosure"
+            open={showHistory || undefined}
+            onToggle={(event) => setShowHistory(event.currentTarget.open)}
+          >
+            <summary>
+              <span>
+                <History size={17} aria-hidden="true" />
+                Histórico
+              </span>
+              <i>{movements.length}</i>
+            </summary>
+
+            {movements.length ? (
+              <div className="store-movement-list compact-history">
+                {movements.slice(0, 8).map((movement) => (
+                  <article
+                    className={`store-movement-row ${
+                      movement.quantityDelta < 0 ? "is-sale" : "is-entry"
+                    }`}
+                    key={movement.id}
+                  >
+                    <span
+                      className={`store-movement-icon ${
+                        movement.quantityDelta >= 0 ? "success" : "danger"
+                      }`}
+                    >
+                      {movement.quantityDelta >= 0 ? (
+                        <PackagePlus size={16} aria-hidden="true" />
+                      ) : (
+                        <PackageMinus size={16} aria-hidden="true" />
+                      )}
+                    </span>
+                    <div>
+                      <strong>
+                        {movementProductName(movement, products)} ·{" "}
+                        {movementTypeLabel(movement.type)}
+                      </strong>
+                      <small>
+                        <span
+                          className={`movement-quantity ${
+                            movement.quantityDelta < 0 ? "danger" : "success"
+                          }`}
+                        >
+                          {formatSignedQuantity(movement.quantityDelta)} un.
+                        </span>
+                        <span>Estoque {movement.quantityAfter}</span>
+                        <span>{movement.createdByName || "Finny"}</span>
+                      </small>
+                      {movement.note ? <p>{movement.note}</p> : null}
+                    </div>
+                    <time>{formatDateTimeBR(movement.createdAt)}</time>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<History size={26} aria-hidden="true" />}
+                title="Sem movimentações"
+                text="Entradas e saídas aparecem aqui depois do primeiro registro."
+              />
+            )}
+          </details>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function SupportPanel({
+  isLoading,
+  message,
+  notice,
+  subject,
+  thread,
+  onMessageChange,
+  onRefresh,
+  onSend,
+  onSubjectChange,
+}: {
+  isLoading: boolean;
+  message: string;
+  notice: string;
+  subject: string;
+  thread: SupportThread | null;
+  onMessageChange: (value: string) => void;
+  onRefresh: () => void;
+  onSend: () => void;
+  onSubjectChange: (value: string) => void;
+}) {
+  return (
+    <section className="support-page">
+      <section className="support-panel" aria-labelledby="support-title">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Suporte</span>
+            <h2 id="support-title">Fale com o suporte</h2>
+          </div>
+          <button className="ghost-action" type="button" onClick={onRefresh} disabled={isLoading}>
+            <RefreshCw size={16} aria-hidden="true" />
+            Atualizar
+          </button>
+        </div>
+
+        <div className="support-intro">
+          <span>
+            <LifeBuoy size={18} aria-hidden="true" />
+          </span>
+          <p>Envie sua dúvida ou problema por aqui. O retorno aparece nesta conversa.</p>
+        </div>
+
+        {notice ? (
+          <p className="support-notice" role="status">
+            {notice}
+          </p>
+        ) : null}
+
+        {thread ? (
+          <div className="support-thread-summary">
+            <strong>{thread.subject}</strong>
+            <span className={`status-pill ${supportStatusTone(thread.status)}`}>
+              {supportStatusLabel(thread.status)}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="support-chat" aria-live="polite">
+          {isLoading ? (
+            <p className="support-loading">Carregando suporte...</p>
+          ) : thread?.messages.length ? (
+            thread.messages.map((supportMessage) => (
+              <article
+                className={`support-message is-${supportMessage.senderType}`}
+                key={supportMessage.id}
+              >
+                <div>
+                  <strong>{supportSenderLabel(supportMessage)}</strong>
+                  <time>{formatDateTimeBR(supportMessage.createdAt)}</time>
+                </div>
+                <p>{supportMessage.body}</p>
+              </article>
+            ))
+          ) : (
+            <EmptyState
+              icon={<MessageCircle size={26} aria-hidden="true" />}
+              title="Nenhuma conversa ainda"
+              text="Envie a primeira mensagem quando precisar de ajuda."
+            />
+          )}
+        </div>
+
+        <form
+          className="support-compose"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSend();
+          }}
+        >
+          {!thread ? (
+            <label className="field">
+              <span>Assunto</span>
+              <input
+                maxLength={120}
+                onChange={(event) => onSubjectChange(event.target.value)}
+                placeholder="Ex: dúvida sobre acesso"
+                value={subject}
+              />
+            </label>
+          ) : null}
+
+          <label className="field">
+            <span>Mensagem</span>
+            <textarea
+              maxLength={1800}
+              onChange={(event) => onMessageChange(event.target.value)}
+              placeholder="Escreva sua mensagem"
+              rows={4}
+              value={message}
+            />
+          </label>
+
+          <button className="secondary-action full" type="submit" disabled={isLoading}>
+            <Send size={17} aria-hidden="true" />
+            Enviar mensagem
+          </button>
+        </form>
+      </section>
+    </section>
+  );
+}
+
+function AdminSupportPanel({
+  message,
+  reply,
+  selectedThreadId,
+  threads,
+  onRefresh,
+  onReplyChange,
+  onSelectThread,
+  onSendReply,
+  onStatusChange,
+}: {
+  message: string;
+  reply: string;
+  selectedThreadId: string | null;
+  threads: SupportThread[];
+  onRefresh: () => void;
+  onReplyChange: (value: string) => void;
+  onSelectThread: (threadId: string) => void;
+  onSendReply: (threadId: string) => void;
+  onStatusChange: (threadId: string, status: SupportStatus) => void;
+}) {
+  const selectedThread =
+    threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
+
+  return (
+    <section className="admin-panel support-admin-panel" aria-labelledby="admin-support-title">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Suporte</span>
+          <h2 id="admin-support-title">Atendimentos</h2>
+        </div>
+        <button className="ghost-action" type="button" onClick={onRefresh}>
+          <RefreshCw size={16} aria-hidden="true" />
+          Atualizar
+        </button>
+      </div>
+
+      {message ? (
+        <p className="admin-message" role="status">
+          {message}
+        </p>
+      ) : null}
+
+      {threads.length ? (
+        <div className="support-admin-layout">
+          <div className="support-thread-list" aria-label="Lista de atendimentos">
+            {threads.map((thread) => (
+              <button
+                className={`support-thread-button${
+                  selectedThread?.id === thread.id ? " is-active" : ""
+                }`}
+                key={thread.id}
+                type="button"
+                onClick={() => onSelectThread(thread.id)}
+              >
+                <span>
+                  <strong>{thread.subject}</strong>
+                  <small>{thread.name || thread.email}</small>
+                </span>
+                <i className={`status-pill ${supportStatusTone(thread.status)}`}>
+                  {supportStatusLabel(thread.status)}
+                </i>
+              </button>
+            ))}
+          </div>
+
+          {selectedThread ? (
+            <article className="support-detail">
+              <header className="support-detail-header">
+                <div>
+                  <strong>{selectedThread.subject}</strong>
+                  <span>
+                    {supportSourceLabel(selectedThread.source)} · {selectedThread.name} ·{" "}
+                    {selectedThread.email}
+                  </span>
+                </div>
+                <label className="field support-status-field">
+                  <span>Status</span>
+                  <select
+                    value={selectedThread.status}
+                    onChange={(event) =>
+                      onStatusChange(
+                        selectedThread.id,
+                        event.target.value as SupportStatus,
+                      )
+                    }
+                  >
+                    <option value="new">Novo</option>
+                    <option value="in_progress">Em andamento</option>
+                    <option value="resolved">Resolvido</option>
+                  </select>
+                </label>
+              </header>
+
+              <div className="support-chat is-admin-view">
+                {selectedThread.messages.map((supportMessage) => (
+                  <article
+                    className={`support-message is-${supportMessage.senderType}`}
+                    key={supportMessage.id}
+                  >
+                    <div>
+                      <strong>{supportSenderLabel(supportMessage)}</strong>
+                      <time>{formatDateTimeBR(supportMessage.createdAt)}</time>
+                    </div>
+                    <p>{supportMessage.body}</p>
+                  </article>
+                ))}
+              </div>
+
+              <form
+                className="support-compose"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onSendReply(selectedThread.id);
+                }}
+              >
+                <label className="field">
+                  <span>Resposta</span>
+                  <textarea
+                    maxLength={1800}
+                    onChange={(event) => onReplyChange(event.target.value)}
+                    placeholder="Responder atendimento"
+                    rows={4}
+                    value={reply}
+                  />
+                </label>
+                <button className="secondary-action full" type="submit">
+                  <Send size={17} aria-hidden="true" />
+                  Enviar resposta
+                </button>
+              </form>
+            </article>
+          ) : null}
+        </div>
+      ) : (
+        <EmptyState
+          icon={<LifeBuoy size={26} aria-hidden="true" />}
+          title="Nenhum atendimento"
+          text="Quando alguém pedir ajuda, a conversa aparece aqui."
+        />
+      )}
+    </section>
+  );
+}
+
 function AdminAccessPanel({
   adminEmail,
   adminMessage,
@@ -2687,14 +4172,14 @@ function AdminAccessPanel({
 }: {
   adminEmail: string;
   adminMessage: string;
-  adminRole: "admin" | "user";
+  adminRole: AppRole;
   adminStatus: "active" | "blocked";
   quota: AuthEmailQuota | null;
   users: AccessUser[];
   onEmailChange: (value: string) => void;
   onDeleteUser: (user: AccessUser) => void;
   onRefresh: () => void;
-  onRoleChange: (value: "admin" | "user") => void;
+  onRoleChange: (value: AppRole) => void;
   onSave: () => void;
   onStatusChange: (value: "active" | "blocked") => void;
   onToggleUser: (user: AccessUser) => void;
@@ -2759,9 +4244,12 @@ function AdminAccessPanel({
           <span>Permissao</span>
           <select
             value={adminRole}
-            onChange={(event) => onRoleChange(event.target.value as "admin" | "user")}
+            onChange={(event) =>
+              onRoleChange(event.target.value as AppRole)
+            }
           >
             <option value="user">Usuario</option>
+            <option value="socio">Sócio</option>
             <option value="admin">Administrador</option>
           </select>
         </label>
@@ -2793,7 +4281,7 @@ function AdminAccessPanel({
             <div>
               <strong>{accessUser.email}</strong>
               <span>
-                {accessUser.role === "admin" ? "Administrador" : "Usuario"} ·{" "}
+                {accessRoleLabel(accessUser.role)} ·{" "}
                 {accessUser.status === "active" ? "Ativo" : "Bloqueado"}
               </span>
             </div>
@@ -2877,11 +4365,13 @@ function SummaryPanel({
 }
 
 function MetricTile({
+  hint,
   icon,
   label,
   value,
   tone = "neutral",
 }: {
+  hint?: string;
   icon: ReactNode;
   label: string;
   value: string;
@@ -2892,6 +4382,7 @@ function MetricTile({
       <span className="metric-icon">{icon}</span>
       <span>{label}</span>
       <strong key={value}>{value}</strong>
+      {hint ? <small className="metric-hint">{hint}</small> : null}
     </div>
   );
 }
@@ -3125,6 +4616,125 @@ function analysisIcon(tone: AnalysisTone) {
   if (tone === "warning") return <AlertTriangle size={16} aria-hidden="true" />;
   if (tone === "danger") return <AlertTriangle size={16} aria-hidden="true" />;
   return <Info size={16} aria-hidden="true" />;
+}
+
+function getStoreMetrics(products: StoreProduct[]) {
+  return products.reduce(
+    (metrics, product) => ({
+      productCount: metrics.productCount + 1,
+      stockQuantity: metrics.stockQuantity + product.stockQuantity,
+      stockCostCents:
+        metrics.stockCostCents + product.stockQuantity * product.costCents,
+      stockRevenueCents:
+        metrics.stockRevenueCents + product.stockQuantity * product.priceCents,
+      projectedProfitCents:
+        metrics.projectedProfitCents +
+        product.stockQuantity * (product.priceCents - product.costCents),
+      lowStockCount:
+        metrics.lowStockCount +
+        (product.minStockQuantity > 0 &&
+        product.stockQuantity <= product.minStockQuantity
+          ? 1
+          : 0),
+    }),
+    {
+      productCount: 0,
+      stockQuantity: 0,
+      stockCostCents: 0,
+      stockRevenueCents: 0,
+      projectedProfitCents: 0,
+      lowStockCount: 0,
+    },
+  );
+}
+
+function parseQuantityInput(value: string) {
+  const numberValue = Number.parseInt(value.replace(/\D/g, ""), 10);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function storeProductStatusLabel(product: StoreProduct) {
+  if (product.stockQuantity <= 0) return "Sem estoque";
+  if (
+    product.minStockQuantity > 0 &&
+    product.stockQuantity <= product.minStockQuantity
+  ) {
+    return "Estoque baixo";
+  }
+
+  return "Disponível";
+}
+
+function storeProductStatusTone(product: StoreProduct) {
+  if (product.stockQuantity <= 0) return "danger";
+  if (
+    product.minStockQuantity > 0 &&
+    product.stockQuantity <= product.minStockQuantity
+  ) {
+    return "warning";
+  }
+
+  return "success";
+}
+
+function movementProductName(
+  movement: StoreInventoryMovement,
+  products: StoreProduct[],
+) {
+  return (
+    products.find((product) => product.id === movement.productId)?.name ??
+    "Produto arquivado"
+  );
+}
+
+function movementTypeLabel(type: StoreMovementType) {
+  if (type === "sale") return "Saída";
+  if (type === "adjustment") return "Ajuste";
+  if (type === "initial") return "Estoque inicial";
+  return "Entrada";
+}
+
+function formatSignedQuantity(value: number) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function accessRoleLabel(role: AccessUser["role"]) {
+  if (role === "admin") return "Administrador";
+  if (role === "socio") return "Sócio";
+  return "Usuario";
+}
+
+function supportStatusLabel(status: SupportStatus) {
+  if (status === "resolved") return "Resolvido";
+  if (status === "in_progress") return "Em andamento";
+  return "Novo";
+}
+
+function supportStatusTone(status: SupportStatus) {
+  if (status === "resolved") return "success";
+  if (status === "in_progress") return "warning";
+  return "neutral";
+}
+
+function supportSourceLabel(source: SupportSource) {
+  return source === "visitor" ? "Visitante" : "Usuario logado";
+}
+
+function supportSenderLabel(message: SupportMessage) {
+  if (message.senderType === "admin") return "Suporte";
+  return message.senderName || message.senderEmail || "Usuario";
+}
+
+function formatDateTimeBR(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function EmptyState({

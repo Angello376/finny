@@ -30,13 +30,18 @@ export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as {
       email?: string;
-      role?: "admin" | "user";
+      role?: "admin" | "socio" | "user";
       status?: "active" | "blocked";
     };
 
     const badRequest = await upsertAccessUser({
       email: payload.email ?? "",
-      role: payload.role === "admin" ? "admin" : "user",
+      role:
+        payload.role === "admin"
+          ? "admin"
+          : payload.role === "socio"
+            ? "socio"
+            : "user",
       status: payload.status === "blocked" ? "blocked" : "active",
     });
     if (badRequest) return badRequest;

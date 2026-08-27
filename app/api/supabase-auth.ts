@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { accessUsers, financeCards } from "@/db/schema";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/app/supabase-config";
 
-export type AppRole = "admin" | "user";
+export type AppRole = "admin" | "socio" | "user";
 export type AccessStatus = "active" | "blocked";
 
 export type AuthenticatedAppUser = {
@@ -27,7 +27,7 @@ export async function requireSupabaseUser(request: Request) {
     return {
       user: null,
       response: Response.json(
-        { error: "Faca login para acessar seus cards financeiros." },
+        { error: "Faça login para acessar o Finny." },
         { status: 401 },
       ),
     };
@@ -99,7 +99,7 @@ export async function requireSupabaseUser(request: Request) {
       email,
       displayName: profileName.displayName,
       requiresProfileName: !profileName.hasRealName,
-      role: access.role === "admin" ? "admin" : "user",
+      role: normalizeAppRole(access.role),
       status: "active" as const,
     },
     response: null,
@@ -123,6 +123,23 @@ export async function requireAdminUser(request: Request) {
   return { user, response: null };
 }
 
+export async function requireStoreUser(request: Request) {
+  const { user, response } = await requireSupabaseUser(request);
+  if (!user) return { user: null, response };
+
+  if (user.role !== "admin" && user.role !== "socio") {
+    return {
+      user: null,
+      response: Response.json(
+        { error: "Apenas administradores e sócios podem acessar a loja." },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { user, response: null };
+}
+
 export async function listAccessUsers() {
   return getDb()
     .select()
@@ -137,7 +154,7 @@ export async function upsertAccessUser(input: {
 }) {
   const email = input.email.trim().toLowerCase();
   const now = new Date().toISOString();
-  const role = input.role === "admin" ? "admin" : "user";
+  const role = normalizeAppRole(input.role);
   const status = input.status === "blocked" ? "blocked" : "active";
 
   if (!email || !email.includes("@")) {
@@ -199,6 +216,12 @@ function getBearerToken(request: Request) {
 
   if (scheme.toLowerCase() !== "bearer" || !token) return null;
   return token;
+}
+
+function normalizeAppRole(role: string): AppRole {
+  if (role === "admin") return "admin";
+  if (role === "socio") return "socio";
+  return "user";
 }
 
 function getSupabaseProfileName(

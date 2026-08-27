@@ -46,10 +46,10 @@ test("uses the requested animated login palette without mascot UI", async () => 
   assert.match(css, /\.login-page\s*\{[\s\S]*background:\s*[\s\S]*var\(--login-navy\);/);
   assert.match(css, /\.login-panel\s*\{[\s\S]*var\(--login-panel\)/);
   assert.match(css, /\.login-form span\s*\{[\s\S]*color:\s*var\(--login-gray\)/);
-  assert.match(css, /\.login-form input\s*\{[\s\S]*background:\s*#ffffff/);
+  assert.match(css, /\.login-form input,\s*[\s\S]*\.login-form textarea\s*\{[\s\S]*background:\s*#ffffff/);
   assert.match(css, /\.login-page \.eyebrow\s*\{[\s\S]*color:\s*var\(--login-yellow\)/);
   assert.match(css, /\.login-button\s*\{[\s\S]*background:\s*var\(--login-blue\)/);
-  assert.match(css, /\.login-form input:focus\s*\{[\s\S]*rgba\(37, 99, 235, 0\.68\)/);
+  assert.match(css, /\.login-form input:focus,\s*[\s\S]*\.login-form textarea:focus\s*\{[\s\S]*rgba\(37, 99, 235, 0\.68\)/);
   assert.match(css, /@keyframes login-aurora-drift/);
   assert.match(css, /@keyframes login-grid-drift/);
   assert.match(css, /\.login-loading/);
@@ -150,6 +150,115 @@ test("keeps the authenticated app usable on mobile screens", async () => {
   assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.summary-panel\s*\{[\s\S]*grid-template-columns:\s*1fr/);
 });
 
+test("adds shared store inventory for admin and partner users", async () => {
+  const [
+    appShell,
+    css,
+    schema,
+    storeStorage,
+    supabaseAuth,
+    adminUsersRoute,
+    apiError,
+    shopIdRepairMigration,
+  ] = await Promise.all([
+    readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/store/store-storage.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/supabase-auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/admin/users/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/api-error.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0007_repair_empty_shop_product_ids.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appShell, /"home" \| "editor" \| "store" \| "support" \| "admin"/);
+  assert.match(appShell, /const STORE_SYNC_INTERVAL_MS = 12000/);
+  assert.match(appShell, /type StoreMovementInput/);
+  assert.match(appShell, /const canAccessStore = user\.role === "admin" \|\| user\.role === "socio"/);
+  assert.match(appShell, /screen !== "store" \|\| \(user\.role !== "admin" && user\.role !== "socio"\)/);
+  assert.match(appShell, /loadStoreInventory\(\{ silent: true \}\)/);
+  assert.match(appShell, /<StorePanel/);
+  assert.match(appShell, /store-quick-layout/);
+  assert.match(appShell, /store-search/);
+  assert.match(appShell, /Buscar produto/);
+  assert.match(appShell, /Vendi 1/);
+  assert.match(appShell, /Leitura rápida/);
+  assert.match(appShell, /Vendidas/);
+  assert.match(appShell, /Margem/);
+  assert.match(appShell, /Última saída/);
+  assert.match(appShell, /handleQuickSale/);
+  assert.match(appShell, /onSaveMovement\(\{[\s\S]*type: "sale",[\s\S]*quantity: 1/);
+  assert.match(appShell, /store-history-disclosure/);
+  assert.match(appShell, /movements\.slice\(0, 8\)/);
+  assert.match(appShell, /Quantidade inicial/);
+  assert.match(appShell, /Investido/);
+  assert.match(appShell, /Faturamento/);
+  assert.match(appShell, /formatProjectedProfitHint/);
+  assert.match(appShell, /Se vender tudo: lucro/);
+  assert.match(appShell, /stockRevenueCents/);
+  assert.match(appShell, /projectedProfitCents/);
+  assert.match(appShell, /className=\{`store-movement-row \$\{[\s\S]*is-sale[\s\S]*is-entry/);
+  assert.match(appShell, /movement-quantity/);
+  assert.doesNotMatch(appShell, /<span>Código<\/span>|Código opcional/);
+  assert.match(appShell, /<option value="socio">Sócio<\/option>/);
+  assert.match(appShell, /if \(role === "socio"\) return "Sócio"/);
+
+  assert.match(css, /\.store-page/);
+  assert.match(css, /\.store-summary/);
+  assert.match(css, /\.store-quick-layout/);
+  assert.match(css, /\.store-search/);
+  assert.match(css, /\.store-side-panel/);
+  assert.match(css, /\.store-action-panel/);
+  assert.match(css, /\.store-insight-panel/);
+  assert.match(css, /\.store-mini-metrics/);
+  assert.match(css, /\.store-product-quick-actions/);
+  assert.match(css, /\.store-history-disclosure/);
+  assert.match(css, /\.metric-hint/);
+  assert.match(css, /\.store-product-row/);
+  assert.match(css, /\.store-movement-row/);
+  assert.match(css, /\.store-heading-actions \.secondary-action[\s\S]*#ffc107/);
+  assert.match(css, /\.store-movement-row\.is-entry/);
+  assert.match(css, /\.store-movement-row\.is-sale/);
+  assert.match(css, /\.movement-quantity\.success/);
+  assert.match(css, /\.movement-quantity\.danger/);
+  assert.doesNotMatch(css, /\.store-action-empty/);
+  assert.doesNotMatch(css, /\.store-stepper/);
+  assert.match(css, /\.support-message\.is-user,[\s\S]*\.support-message\.is-visitor\s*\{[\s\S]*justify-self:\s*end/);
+  assert.match(css, /\.support-message\.is-admin\s*\{[\s\S]*justify-self:\s*start/);
+  assert.match(css, /@media \(max-width: 1180px\)[\s\S]*\.store-quick-layout\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.store-summary,/);
+
+  assert.match(schema, /export const shopProducts = sqliteTable/);
+  assert.match(schema, /export const shopInventoryMovements = sqliteTable/);
+  assert.match(schema, /idx_shop_products_active/);
+  assert.match(schema, /idx_shop_inventory_movements_product_id/);
+
+  assert.match(storeStorage, /export async function listStoreInventory/);
+  assert.match(storeStorage, /export async function upsertStoreProduct/);
+  assert.match(storeStorage, /export async function createStoreMovement/);
+  assert.match(storeStorage, /existingProduct\?\.id \|\| product\.id \|\| crypto\.randomUUID\(\)/);
+  assert.match(storeStorage, /quantityAfter < 0/);
+  assert.match(storeStorage, /Estoque inicial/);
+  assert.match(storeStorage, /Ajuste manual/);
+
+  assert.match(supabaseAuth, /export type AppRole = "admin" \| "socio" \| "user"/);
+  assert.match(supabaseAuth, /export async function requireStoreUser/);
+  assert.match(supabaseAuth, /user\.role !== "admin" && user\.role !== "socio"/);
+  assert.match(supabaseAuth, /Apenas administradores e sócios podem acessar a loja/);
+  assert.match(adminUsersRoute, /role\?: "admin" \| "socio" \| "user"/);
+  assert.match(adminUsersRoute, /payload\.role === "socio"/);
+
+  assert.match(apiError, /technicalErrorPattern/);
+  assert.match(apiError, /Failed query\|SQLITE_\|D1_/);
+  assert.match(apiError, /Não foi possível concluir a ação agora/);
+  assert.doesNotMatch(apiError, /return Response\.json\(\{ error: message \}/);
+
+  assert.match(appShell, /Selecione um produto para arquivar/);
+  assert.match(appShell, /Não foi possível concluir a ação agora/);
+  assert.match(shopIdRepairMigration, /UPDATE `shop_products`/);
+  assert.match(shopIdRepairMigration, /WHERE `id` = ''/);
+});
+
 test("keeps the usability test flow focused and guided", async () => {
   const [appShell, css, cardStorage, supabaseAuth] = await Promise.all([
     readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
@@ -188,14 +297,18 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /function getCardDateParts/);
   assert.match(appShell, /\.then\(\(registration\) => registration\.update\(\)\)/);
   assert.match(appShell, /type ReleaseAnnouncement/);
+  assert.match(appShell, /audienceRoles\?: AppRole\[\]/);
   assert.match(appShell, /type ReleaseGateStatus = "checking" \| "required" \| "cleared"/);
   assert.match(appShell, /const RELEASE_ACK_KEY_PREFIX = "finny:release-seen:"/);
   assert.match(appShell, /const currentRelease: ReleaseAnnouncement \| null/);
   assert.match(appShell, /Set to null when there is no active release note/);
   assert.match(appShell, /function releaseAckStorageKey\(userId: string, releaseId: string\)/);
-  assert.match(appShell, /currentRelease \? "checking" : "cleared"/);
-  assert.match(appShell, /if \(!currentRelease\) \{[\s\S]*setReleaseGateStatus\("cleared"\)/);
-  assert.match(appShell, /currentRelease && releaseGateStatus !== "cleared"/);
+  assert.match(appShell, /function getActiveReleaseForUser\(user: AppUser\)/);
+  assert.match(appShell, /audienceRoles: \["socio"\]/);
+  assert.match(appShell, /currentRelease\.audienceRoles\.includes\(user\.role\)/);
+  assert.match(appShell, /activeRelease \? "checking" : "cleared"/);
+  assert.match(appShell, /if \(!activeRelease\) \{[\s\S]*setReleaseGateStatus\("cleared"\)/);
+  assert.match(appShell, /activeRelease && releaseGateStatus !== "cleared"/);
   assert.match(appShell, /function ReleaseGateLoading/);
   assert.match(appShell, /function ReleaseAnnouncementGate/);
   assert.match(appShell, /function getReleaseGreeting/);
@@ -203,13 +316,13 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /\/assets\/brand\/finny-release-updates\.png/);
   assert.doesNotMatch(appShell, /<header className="release-gate-header">[\s\S]*className="release-gate-logo"/);
   assert.doesNotMatch(appShell, /Olá, \{user\.displayName\}/);
-  assert.match(appShell, /title: "Atualização 1\.2"/);
+  assert.match(appShell, /title: "Atualização 1\.3"/);
   assert.match(appShell, /Novidades/);
-  assert.match(appShell, /A entrada no Finny ficou mais limpa/);
-  assert.match(appShell, /Carregamento mais bonito ao entrar/);
-  assert.match(appShell, /Tela inicial sem botão repetido/);
-  assert.match(appShell, /Experiência mais limpa no login/);
-  assert.match(appShell, /Aguarde o Finny finalizar o carregamento/);
+  assert.match(appShell, /A Loja ficou mais rápida para cadastrar, vender e acompanhar o estoque/);
+  assert.match(appShell, /Venda com um clique pelo botão Vendi 1/);
+  assert.match(appShell, /Histórico da loja com cores mais fáceis de entender/);
+  assert.match(appShell, /Faturamento e lucro ficaram mais claros/);
+  assert.match(appShell, /Entre na aba Loja, se ela estiver liberada para seu usuário/);
   assert.doesNotMatch(appShell, /Primeiro nome obrigatório/);
   assert.match(appShell, /Ver passo a passo/);
   assert.match(appShell, /Entendi, abrir o app/);
