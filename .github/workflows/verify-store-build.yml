@@ -1,0 +1,33 @@
+name: Verify Finny Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app/**
+      - db/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/verify-store-build.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - app/**
+      - db/**
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
