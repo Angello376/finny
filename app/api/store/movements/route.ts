@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       type?: StoreMovementType;
       quantity?: number;
       unitAmountCents?: number;
+      flavorId?: string;
       note?: string;
     };
     const result = await createStoreMovement(user, payload);
