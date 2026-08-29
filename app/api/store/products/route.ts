@@ -19,14 +19,12 @@ export async function POST(request: Request) {
       priceCents?: number;
       stockQuantity?: number;
       minStockQuantity?: number;
+      flavors?: Array<{ id?: string; name?: string; stockQuantity?: number }>;
     };
     const result = await upsertStoreProduct(user, payload);
     if (result.response) return result.response;
 
-    return Response.json({
-      ...(await listStoreInventory()),
-      product: result.product,
-    });
+    return Response.json({ ...(await listStoreInventory()), product: result.product });
   } catch (error) {
     return apiErrorResponse(error, "Não foi possível salvar o produto agora.");
   }
