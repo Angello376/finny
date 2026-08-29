@@ -1,3 +1,4 @@
+// Finny Store UI migration v2
 import fs from "node:fs";
 
 const path = "app/CardsFinanceirosApp.tsx";
