@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -153,6 +153,7 @@ test("keeps the authenticated app usable on mobile screens", async () => {
 test("adds shared store inventory for admin and partner users", async () => {
   const [
     appShell,
+    storePanel,
     css,
     schema,
     storeStorage,
@@ -162,6 +163,7 @@ test("adds shared store inventory for admin and partner users", async () => {
     shopIdRepairMigration,
   ] = await Promise.all([
     readFile(new URL("../app/CardsFinanceirosApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/store/StorePanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/store/store-storage.ts", import.meta.url), "utf8"),
@@ -178,29 +180,25 @@ test("adds shared store inventory for admin and partner users", async () => {
   assert.match(appShell, /screen !== "store" \|\| \(user\.role !== "admin" && user\.role !== "socio"\)/);
   assert.match(appShell, /loadStoreInventory\(\{ silent: true \}\)/);
   assert.match(appShell, /<StorePanel/);
-  assert.match(appShell, /store-quick-layout/);
-  assert.match(appShell, /store-search/);
-  assert.match(appShell, /Buscar produto/);
-  assert.match(appShell, /Vendi 1/);
-  assert.match(appShell, /Leitura rápida/);
-  assert.match(appShell, /Vendidas/);
-  assert.match(appShell, /Margem/);
-  assert.match(appShell, /Última saída/);
-  assert.match(appShell, /handleQuickSale/);
-  assert.match(appShell, /onSaveMovement\(\{[\s\S]*type: "sale",[\s\S]*quantity: 1/);
-  assert.match(appShell, /store-history-disclosure/);
-  assert.match(appShell, /movements\.slice\(0, 8\)/);
-  assert.match(appShell, /Quantidade inicial/);
-  assert.match(appShell, /Investido/);
-  assert.match(appShell, /Faturamento/);
+  assert.match(storePanel, /store-quick-layout/);
+  assert.match(storePanel, /store-search/);
+  assert.match(storePanel, /Buscar produto/);
+  assert.doesNotMatch(storePanel, /Vendi 1/);
+  assert.match(storePanel, /store-entry-action/);
+  assert.match(storePanel, /stock-quantity is-positive/);
+  assert.match(storePanel, /stock-quantity is-empty/);
+  assert.match(storePanel, /Adicionar sabor/);
+  assert.match(storePanel, /Sabores/);
+  assert.match(storePanel, /movementFlavorId/);
+  assert.match(storePanel, /flavor\.stockQuantity/);
+  assert.match(storePanel, /toLocaleUpperCase\("pt-BR"\)/);
+  assert.match(storePanel, /Investido/);
+  assert.match(storePanel, /Faturamento potencial/);
   assert.match(appShell, /formatProjectedProfitHint/);
   assert.match(appShell, /Se vender tudo: lucro/);
   assert.match(appShell, /stockRevenueCents/);
   assert.match(appShell, /projectedProfitCents/);
-  assert.match(appShell, /className=\{`store-movement-row \$\{[\s\S]*is-sale[\s\S]*is-entry/);
-  assert.match(appShell, /movement-quantity/);
   assert.doesNotMatch(appShell, /<span>Código<\/span>|Código opcional/);
-  assert.match(appShell, /<option value="socio">Sócio<\/option>/);
   assert.match(appShell, /if \(role === "socio"\) return "Sócio"/);
 
   assert.match(css, /\.store-page/);
@@ -217,6 +215,9 @@ test("adds shared store inventory for admin and partner users", async () => {
   assert.match(css, /\.store-product-row/);
   assert.match(css, /\.store-movement-row/);
   assert.match(css, /\.store-heading-actions \.secondary-action[\s\S]*#ffc107/);
+  assert.match(css, /\.store-product-quick-actions \.store-entry-action[\s\S]*background:\s*#ffc107/);
+  assert.match(css, /\.stock-quantity\.is-empty[\s\S]*#ff4d5f/);
+  assert.match(css, /\.stock-quantity\.is-positive[\s\S]*#22c55e/);
   assert.match(css, /\.store-movement-row\.is-entry/);
   assert.match(css, /\.store-movement-row\.is-sale/);
   assert.match(css, /\.movement-quantity\.success/);
@@ -239,7 +240,8 @@ test("adds shared store inventory for admin and partner users", async () => {
   assert.match(storeStorage, /existingProduct\?\.id \|\| product\.id \|\| crypto\.randomUUID\(\)/);
   assert.match(storeStorage, /quantityAfter < 0/);
   assert.match(storeStorage, /Estoque inicial/);
-  assert.match(storeStorage, /Ajuste manual/);
+  assert.match(storeStorage, /flavorQuantityAfter < 0 \|\| quantityAfter < 0/);
+  assert.match(storeStorage, /name: cleanText\(input\.name, 90\)\.toLocaleUpperCase\("pt-BR"\)/);
 
   assert.match(supabaseAuth, /export type AppRole = "admin" \| "socio" \| "user"/);
   assert.match(supabaseAuth, /export async function requireStoreUser/);
@@ -316,12 +318,12 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(appShell, /\/assets\/brand\/finny-release-updates\.png/);
   assert.doesNotMatch(appShell, /<header className="release-gate-header">[\s\S]*className="release-gate-logo"/);
   assert.doesNotMatch(appShell, /Olá, \{user\.displayName\}/);
-  assert.match(appShell, /title: "Atualização 1\.3"/);
+  assert.match(appShell, /title: "Atualização 1\.4"/);
   assert.match(appShell, /Novidades/);
-  assert.match(appShell, /A Loja ficou mais rápida para cadastrar, vender e acompanhar o estoque/);
-  assert.match(appShell, /Venda com um clique pelo botão Vendi 1/);
-  assert.match(appShell, /Histórico da loja com cores mais fáceis de entender/);
-  assert.match(appShell, /Faturamento e lucro ficaram mais claros/);
+  assert.match(appShell, /A Loja ficou mais organizada para registrar entradas e acompanhar o estoque/);
+  assert.match(appShell, /Estoque zerado aparece em vermelho e estoque disponível em verde/);
+  assert.match(appShell, /Os controles de Entrada, Editar e Excluir ficaram centralizados/);
+  assert.match(appShell, /Os nomes dos produtos são salvos em letras maiúsculas/);
   assert.match(appShell, /Entre na aba Loja, se ela estiver liberada para seu usuário/);
   assert.doesNotMatch(appShell, /Primeiro nome obrigatório/);
   assert.match(appShell, /Ver passo a passo/);
@@ -396,3 +398,4 @@ test("keeps the usability test flow focused and guided", async () => {
   assert.match(supabaseAuth, /function isRealDisplayName/);
   assert.doesNotMatch(css, /\.card-preview-frame|\.versions-list|\.format-select/);
 });
+

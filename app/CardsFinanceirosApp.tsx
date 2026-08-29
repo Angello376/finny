@@ -345,20 +345,20 @@ const STORE_SYNC_INTERVAL_MS = 12000;
 
 // Set to null when there is no active release note to show before entering the app.
 const currentRelease: ReleaseAnnouncement | null = {
-  id: "1.3",
-  title: "Atualização 1.3",
+  id: "1.4",
+  title: "Atualização 1.4",
   summary:
-    "A Loja ficou mais rápida para cadastrar, vender e acompanhar o estoque.",
+    "A Loja ficou mais organizada para registrar entradas e acompanhar o estoque.",
   audienceRoles: ["socio"],
   highlights: [
-    "Venda com um clique pelo botão Vendi 1.",
-    "Histórico da loja com cores mais fáceis de entender.",
-    "Faturamento e lucro ficaram mais claros.",
+    "Estoque zerado aparece em vermelho e estoque disponível em verde.",
+    "Os controles de Entrada, Editar e Excluir ficaram centralizados.",
+    "Os nomes dos produtos são salvos em letras maiúsculas.",
   ],
   steps: [
     "Entre na aba Loja, se ela estiver liberada para seu usuário.",
     "Use Novo produto para cadastrar ou editar itens do estoque.",
-    "Clique em Vendi 1 para registrar uma saída rápida.",
+    "Use Entrada para adicionar unidades e abra o produto para registrar uma venda por sabor.",
   ],
 };
 
@@ -3329,6 +3329,72 @@ function HomeScreen({
   );
 }
 
+function SupportPanel({
+  isLoading, message, notice, subject, thread, onMessageChange, onRefresh, onSend, onSubjectChange,
+}: {
+  isLoading: boolean; message: string; notice: string; subject: string; thread: SupportThread | null;
+  onMessageChange: (value: string) => void; onRefresh: () => void; onSend: () => void;
+  onSubjectChange: (value: string) => void;
+}) {
+  return <section className="support-page">
+    <section className="support-panel" aria-labelledby="support-title">
+      <div className="section-heading"><div><span className="eyebrow">Ajuda</span><h2 id="support-title">Suporte Finny</h2></div><button className="ghost-action" type="button" onClick={onRefresh} disabled={isLoading}><RefreshCw size={16} />Atualizar</button></div>
+      <div className="support-intro"><span><MessageCircle size={21} /></span><p>Fale com a equipe do Finny. As respostas ficam salvas nesta conversa.</p></div>
+      {notice ? <p className="support-notice" role="status">{notice}</p> : null}
+      {thread ? <><div className="support-thread-summary"><strong>{thread.subject}</strong><span className={`status-pill ${supportStatusTone(thread.status)}`}>{supportStatusLabel(thread.status)}</span></div><div className="support-chat">{thread.messages.length ? thread.messages.map((item) => <article className={`support-message is-${item.senderType}`} key={item.id}><div><strong>{supportSenderLabel(item)}</strong><time>{formatDateTimeBR(item.createdAt)}</time></div><p>{item.body}</p></article>) : <EmptyState icon={<MessageCircle size={25} />} title="Conversa vazia" text="Envie a primeira mensagem para o suporte." />}</div></> : null}
+      <div className="support-compose">
+        {!thread ? <label className="field"><span>Assunto</span><input value={subject} onChange={(event) => onSubjectChange(event.target.value)} placeholder="Como podemos ajudar?" /></label> : null}
+        <label className="field"><span>Mensagem</span><textarea value={message} onChange={(event) => onMessageChange(event.target.value)} placeholder="Escreva sua mensagem" rows={4} /></label>
+        <button className="primary-action" type="button" onClick={onSend} disabled={isLoading || !message.trim()}><Send size={16} />Enviar mensagem</button>
+      </div>
+      {isLoading ? <p className="support-loading">Carregando conversa...</p> : null}
+    </section>
+  </section>;
+}
+
+function AdminAccessPanel({
+  adminEmail, adminMessage, adminRole, adminStatus, quota, users, onEmailChange, onDeleteUser, onRefresh,
+  onRoleChange, onSave, onStatusChange, onToggleUser,
+}: {
+  adminEmail: string; adminMessage: string; adminRole: AppRole; adminStatus: "active" | "blocked";
+  quota: AuthEmailQuota | null; users: AccessUser[]; onEmailChange: (value: string) => void;
+  onDeleteUser: (user: AccessUser) => void; onRefresh: () => void; onRoleChange: (value: AppRole) => void;
+  onSave: () => void; onStatusChange: (value: "active" | "blocked") => void; onToggleUser: (user: AccessUser) => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  const remainingSeconds = quota?.nextAvailableAt ? Math.max(0, Math.ceil((new Date(quota.nextAvailableAt).getTime() - now) / 1000)) : 0;
+  return <section className="admin-panel" aria-labelledby="admin-title">
+    <div className="section-heading"><div><span className="eyebrow">Admin</span><h2 id="admin-title">Controle de acesso</h2></div><button className="ghost-action" type="button" onClick={onRefresh}><RefreshCw size={16} />Atualizar</button></div>
+    <div className="email-quota" aria-live="polite"><strong>E-mails de cadastro</strong><span>{quota ? `${quota.available} de ${quota.limit} disponíveis nesta hora` : "Carregando limite..."}</span><small>{quota?.nextAvailableAt ? `Próxima liberação em ${formatCountdown(remainingSeconds)}` : "Você já pode liberar uma pessoa para criar a conta."}</small></div>
+    <div className="admin-form">
+      <label className="field"><span>E-mail autorizado</span><input inputMode="email" value={adminEmail} onChange={(event) => onEmailChange(event.target.value)} placeholder="email@pessoa.com" /></label>
+      <label className="field"><span>Permissão</span><select value={adminRole} onChange={(event) => onRoleChange(event.target.value as AppRole)}><option value="user">Usuário</option><option value="socio">Sócio</option><option value="admin">Administrador</option></select></label>
+      <label className="field"><span>Status</span><select value={adminStatus} onChange={(event) => onStatusChange(event.target.value as "active" | "blocked")}><option value="active">Ativo</option><option value="blocked">Bloqueado</option></select></label>
+      <button className="secondary-action full" type="button" onClick={onSave}><Save size={17} />Salvar acesso</button>
+    </div>
+    {adminMessage ? <p className="admin-message">{adminMessage}</p> : null}
+    <div className="access-list">{users.map((accessUser) => <div className="access-row" key={accessUser.email}><div><strong>{accessUser.email}</strong><span>{accessRoleLabel(accessUser.role)} · {accessUser.status === "active" ? "Ativo" : "Bloqueado"}</span></div><div className="access-actions"><button className={accessUser.status === "active" ? "danger-mini" : "success-mini"} type="button" onClick={() => onToggleUser(accessUser)}>{accessUser.status === "active" ? "Bloquear" : "Liberar"}</button><button className="danger-mini" type="button" onClick={() => onDeleteUser(accessUser)}>Excluir</button></div></div>)}</div>
+  </section>;
+}
+
+function AdminSupportPanel({
+  message, reply, selectedThreadId, threads, onRefresh, onReplyChange, onSelectThread, onSendReply, onStatusChange,
+}: {
+  message: string; reply: string; selectedThreadId: string | null; threads: SupportThread[];
+  onRefresh: () => void; onReplyChange: (value: string) => void; onSelectThread: (id: string) => void;
+  onSendReply: () => void; onStatusChange: (status: SupportStatus) => void;
+}) {
+  const selected = threads.find((thread) => thread.id === selectedThreadId) ?? null;
+  return <section className="admin-panel support-admin-panel" aria-labelledby="admin-support-title">
+    <div className="section-heading"><div><span className="eyebrow">Atendimento</span><h2 id="admin-support-title">Mensagens de suporte</h2></div><button className="ghost-action" type="button" onClick={onRefresh}><RefreshCw size={16} />Atualizar</button></div>
+    {message ? <p className="admin-message" role="status">{message}</p> : null}
+    <div className="support-admin-layout"><div className="support-thread-list">{threads.length ? threads.map((thread) => <button className={`support-thread-button${thread.id === selectedThreadId ? " is-active" : ""}`} type="button" key={thread.id} onClick={() => onSelectThread(thread.id)}><span><strong>{thread.subject}</strong><small>{thread.name} · {supportSourceLabel(thread.source)}</small></span><i className={`status-pill ${supportStatusTone(thread.status)}`}>{supportStatusLabel(thread.status)}</i></button>) : <EmptyState icon={<LifeBuoy size={25} />} title="Sem chamados" text="Nenhuma conversa de suporte foi iniciada." />}</div>
+      <div className="support-detail">{selected ? <><div className="support-detail-header"><div><strong>{selected.subject}</strong><span>{selected.name} · {selected.email}</span></div><label className="field support-status-field"><span>Status</span><select value={selected.status} onChange={(event) => onStatusChange(event.target.value as SupportStatus)}><option value="new">Novo</option><option value="in_progress">Em atendimento</option><option value="resolved">Resolvido</option></select></label></div><div className="support-chat is-admin-view">{selected.messages.map((item) => <article className={`support-message is-${item.senderType}`} key={item.id}><div><strong>{supportSenderLabel(item)}</strong><time>{formatDateTimeBR(item.createdAt)}</time></div><p>{item.body}</p></article>)}</div><div className="support-compose"><label className="field"><span>Resposta</span><textarea rows={3} value={reply} onChange={(event) => onReplyChange(event.target.value)} placeholder="Escreva a resposta" /></label><button className="primary-action" type="button" onClick={onSendReply} disabled={!reply.trim()}><Send size={16} />Responder</button></div></> : <EmptyState icon={<MessageCircle size={25} />} title="Selecione um chamado" text="Escolha uma conversa para visualizar e responder." />}</div>
+    </div>
+  </section>;
+}
+
 function formatCountdown(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -3775,3 +3841,4 @@ function EmptyState({
     </div>
   );
 }
+
