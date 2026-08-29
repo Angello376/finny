@@ -26,7 +26,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add db/schema.ts app/api/store app/CardsFinanceirosApp.tsx
+          rm -f .store-v2-trigger scripts/apply-store-v2.mjs .github/workflows/apply-store-v2.yml
+          git add db/schema.ts app/api/store app/CardsFinanceirosApp.tsx .store-v2-trigger scripts/apply-store-v2.mjs .github/workflows/apply-store-v2.yml
           git diff --cached --quiet && exit 0
           git commit -m "feat(store): redesign shop inventory with flavors"
           git push
